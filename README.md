@@ -1,6 +1,6 @@
-# BetBook — MongoDB Atlas & Deployment Guide
+# Broww — Private Sports-Betting Portfolio Tracker (Groww Aesthetic)
 
-BetBook is a private sports-betting portfolio tracker. It features a Netflix-style profile picker, individual PIN/passwords, an admin view for Naveen, and an encrypted MongoDB backend with secure session tokens.
+Broww is a private sports-betting portfolio tracker inspired by Groww's design language. It features a Netflix-style profile picker, individual PIN/passwords, an admin console for Naveen, and an encrypted MongoDB backend with secure session tokens.
 
 ---
 
@@ -40,7 +40,7 @@ BetBook is a private sports-betting portfolio tracker. It features a Netflix-sty
 ---
 
 ### Step 2: Test Locally on your PC
-1. In the `betbook` folder, copy `.env.example` to `.env`:
+1. In the `broww` folder, copy `.env.example` to `.env`:
    ```bash
    cp .env.example .env
    ```
@@ -55,17 +55,17 @@ BetBook is a private sports-betting portfolio tracker. It features a Netflix-sty
 ---
 
 ### Step 3: Deploy to Vercel (To share 24/7 with friends)
-1. Push this `betbook` directory to your GitHub account (make the repository **Private**).
+1. Push this repository to your GitHub account (make the repository **Private**).
 2. Go to [vercel.com](https://vercel.com) and log in.
-3. Click **Add New** > **Project** and import your `betbook` repository.
-4. In the **Environment Variables** section, add these 4 variables:
+3. Click **Add New** > **Project** and import your repository.
+4. In the **Environment Variables** section, add these variables:
    - `MONGODB_URI`: (your MongoDB Atlas connection string from Step 1)
    - `MONGODB_DB`: `betbook`
    - `JWT_SECRET`: (a random string of 32+ characters)
    - `ADMIN_NAME`: `naveen`
    - `ADMIN_SETUP_CODE`: (a secret PIN only you know, e.g. `naveen123`)
 5. Click **Deploy**.
-6. Vercel will give you a live URL (like `https://betbook-xxx.vercel.app`).
+6. Vercel will give you a live URL (like `https://broww-xxx.vercel.app`).
 7. Send that URL to your friends!
 
 ---

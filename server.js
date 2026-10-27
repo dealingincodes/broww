@@ -1,5 +1,5 @@
 /**
- * BetBook Standalone & Local Development Server
+ * Broww Standalone & Local Development Server
  * ---------------------------------------------
  * Runs the backend API routes with MongoDB Atlas and serves public/ static files.
  * Zero external web framework dependencies needed — runs directly on Node.js!
@@ -149,7 +149,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n==================================================`);
-  console.log(`  BetBook is running at: http://localhost:${PORT}`);
+  console.log(`  Broww is running at: http://localhost:${PORT}`);
   console.log(`  Database URI: ${process.env.MONGODB_URI ? 'Configured (MongoDB Atlas)' : 'MISSING MONGODB_URI in .env'}`);
   console.log(`==================================================\n`);
 });
