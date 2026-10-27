@@ -133,6 +133,16 @@
 <!-- Outer Frame Container -->
 <div class="min-h-screen bg-slate-100 dark:bg-[#07080a] flex flex-col justify-start items-center transition-colors duration-200">
   
+  <!-- File Protocol Warning Banner (Shows ONLY when opened directly from file explorer) -->
+  <div id="fileProtocolNotice" class="hidden w-full bg-amber-500 text-slate-950 px-4 py-2.5 text-xs font-bold text-center z-50 border-b border-amber-600 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-2">
+      <span>⚠️ You opened this directly from your file manager (file://). Browser security blocks database access in this mode.</span>
+      <a href="http://localhost:3000" class="px-3.5 py-1 rounded-lg bg-slate-950 text-white hover:bg-slate-800 transition font-extrabold whitespace-nowrap shadow-xs">
+        Click to Open http://localhost:3000 →
+      </a>
+    </div>
+  </div>
+
   <!-- Top Global Bar (Header with brand, desktop navigation, instant profile switcher, theme toggle) -->
   <header class="w-full bg-white dark:bg-[#181b22] border-b border-[#e8eaee] dark:border-[#2a2e37] sticky top-0 z-30 transition-colors shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
@@ -591,6 +601,7 @@ let currentDbUser = null;
 async function checkApiConnection() {
   if (window.location.protocol === 'file:') {
     isApiMode = false;
+    document.getElementById('fileProtocolNotice')?.classList.remove('hidden');
     updateDbStatusBadge();
     return null;
   }
@@ -607,9 +618,18 @@ async function checkApiConnection() {
       isApiMode = true;
       updateDbStatusBadge();
       return null;
+    } else {
+      // Check if profiles endpoint responds to verify API health
+      const pCheck = await fetch('/api/auth?action=profiles', { credentials: 'include' });
+      if (pCheck.ok) {
+        isApiMode = true;
+        updateDbStatusBadge();
+        return null;
+      }
+      isApiMode = false;
     }
   } catch (e) {
-    // Network failure or static file viewer
+    console.warn('Network failure connecting to API:', e);
     isApiMode = false;
   }
   updateDbStatusBadge();
@@ -3547,6 +3567,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   const me = await checkApiConnection();
 
   if (isApiMode) {
+    // Purge cached local dummy profiles so only real MongoDB profiles exist
+    state.profiles = state.profiles.filter(p => !['u1', 'u2', 'u3'].includes(p.id) && !p.id.startsWith('u_'));
+
     if (me) {
       // User is already authenticated with session cookie
       state.activeUserId = me.id;
@@ -3560,11 +3583,12 @@ window.addEventListener('DOMContentLoaded', async () => {
           role: me.admin ? 'admin' : 'user',
           bets: [],
           txns: [],
-          startingBankroll: 0
+          startingBankroll: me.start || 0
         };
         state.profiles.push(p);
       } else {
         p.role = me.admin ? 'admin' : 'user';
+        if (me.start != null) p.startingBankroll = me.start;
       }
 
       // Fetch user's live bets & transactions from DB
@@ -3589,7 +3613,7 @@ window.addEventListener('DOMContentLoaded', async () => {
               role: p.admin ? 'admin' : 'user',
               bets: [],
               txns: [],
-              startingBankroll: 0
+              startingBankroll: p.start || 0
             }));
           }
         }
