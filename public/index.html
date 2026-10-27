@@ -1,0 +1,3612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <title>BetBook — Private Sports-Betting Portfolio Tracker</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            bbGreen: '#00b386',
+            bbGreenBg: '#e6f7f2',
+            bbGreenDarkBg: '#0f2e27',
+            bbRed: '#eb5b3c',
+            bbRedBg: '#fdeeea',
+            bbRedDarkBg: '#35201b',
+            bbMuted: '#7c818c',
+            bbDarkMuted: '#9aa0ac',
+            bbDark: '#1b1d21',
+            bbCardBorder: '#e8eaee',
+            bbDarkBorder: '#2a2e37',
+            bbDarkCard: '#181b22',
+            bbDarkBg: '#0e1014'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --tx: #1b1d21;
+      --mu: #7c818c;
+      --bd: #e8eaee;
+      --g: #00b386;
+      --r: #eb5b3c;
+      --gb: #e6f7f2;
+      --rb: #fdeeea;
+    }
+    .dark {
+      --bg: #0e1014;
+      --card: #181b22;
+      --tx: #f0f2f5;
+      --mu: #9aa0ac;
+      --bd: #2a2e37;
+      --gb: #0f2e27;
+      --rb: #35201b;
+    }
+    
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--tx);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+    
+    /* Smooth sheet & desktop modal animations */
+    .sheet-enter {
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .sheet-entered {
+      transform: translateY(0%);
+    }
+
+    @media (min-width: 640px) {
+      .sheet-enter {
+        transform: scale(0.96) translateY(12px);
+        opacity: 0;
+        transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out;
+      }
+      .sheet-entered {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+      }
+    }
+    
+    /* Subtle custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(124, 129, 140, 0.25);
+      border-radius: 4px;
+    }
+
+    /* Subtle pulse animation for pending / live bets */
+    @keyframes subtlePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(0.98); }
+    }
+    .badge-live {
+      animation: subtlePulse 2.2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="selection:bg-emerald-500 selection:text-white">
+
+<!-- Outer Frame Container -->
+<div class="min-h-screen bg-slate-100 dark:bg-[#07080a] flex flex-col justify-start items-center transition-colors duration-200">
+  
+  <!-- Top Global Bar (Header with brand, desktop navigation, instant profile switcher, theme toggle) -->
+  <header class="w-full bg-white dark:bg-[#181b22] border-b border-[#e8eaee] dark:border-[#2a2e37] sticky top-0 z-30 transition-colors shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+      
+      <!-- Left: Logo & Title -->
+      <div class="flex items-center gap-2.5 cursor-pointer" onclick="navigateTab('home')">
+        <div class="w-8 h-8 rounded-xl bg-[#00b386] flex items-center justify-center text-white font-black text-base shadow-sm">
+          B
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-extrabold tracking-tight text-lg text-[#1b1d21] dark:text-white">BetBook</span>
+          <span class="px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded bg-emerald-50 dark:bg-emerald-950/60 text-[#00b386] border border-emerald-200/60 dark:border-emerald-800/40">Portfolio</span>
+          <div id="dbStatusBadge" class="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+            <span>Checking DB...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Desktop Navigation Bar (Visible on md and up) -->
+      <nav class="hidden md:flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/60 p-1 rounded-2xl border border-[#e8eaee] dark:border-[#2a2e37]">
+        <button onclick="navigateTab('home')" class="desktop-nav-btn px-4 py-1.5 rounded-xl text-xs font-semibold text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white transition cursor-pointer" data-tab="home">
+          Home
+        </button>
+        <button onclick="navigateTab('bets')" class="desktop-nav-btn px-4 py-1.5 rounded-xl text-xs font-semibold text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white transition cursor-pointer" data-tab="bets">
+          Bets
+        </button>
+        <button onclick="navigateTab('analytics')" class="desktop-nav-btn px-4 py-1.5 rounded-xl text-xs font-semibold text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white transition cursor-pointer" data-tab="analytics">
+          Analytics
+        </button>
+        <button id="everyoneDesktopNavTab" onclick="navigateTab('everyone')" class="desktop-nav-btn px-4 py-1.5 rounded-xl text-xs font-semibold text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white transition cursor-pointer" data-tab="everyone">
+          Everyone
+        </button>
+        <button onclick="navigateTab('profile')" class="desktop-nav-btn px-4 py-1.5 rounded-xl text-xs font-semibold text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white transition cursor-pointer" data-tab="profile">
+          Profile
+        </button>
+      </nav>
+
+      <!-- Right Controls: Desktop + Log Bet, Theme Toggle & Profile Switcher -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Desktop Quick "+ Log Bet" Button -->
+        <button onclick="openAddBetSheet()" class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] active:scale-95 text-white text-xs font-bold transition shadow-sm cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>Log Bet</span>
+        </button>
+
+        <!-- Dark/Light Mode Button -->
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="p-2 rounded-xl text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer" title="Toggle Light/Dark Theme" aria-label="Toggle theme">
+          <!-- Sun icon -->
+          <svg id="sunIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <!-- Moon icon -->
+          <svg id="moonIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+
+        <!-- Quick "+ Add Profile" Button in Header -->
+        <button onclick="showNetflixAddProfileModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-[#00b386] border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-bold transition cursor-pointer shadow-xs" title="Create a new bettor profile">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span class="hidden sm:inline">Add Profile</span>
+        </button>
+
+        <!-- Instant Profile Switcher Dropdown (Requested in Q3) -->
+        <div id="quickProfileSelectorWrapper" class="relative">
+          <button id="profileDropdownBtn" onclick="toggleProfileDropdown()" class="flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-semibold text-[#1b1d21] dark:text-white hover:border-[#00b386] transition cursor-pointer">
+            <div id="topBarAvatar" class="w-5 h-5 rounded-md text-white flex items-center justify-center text-[10px] font-bold bg-[#00b386]">+</div>
+            <span id="topBarName" class="max-w-[80px] sm:max-w-[120px] truncate">Profiles</span>
+            <svg class="w-3.5 h-3.5 text-[#7c818c]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+
+          <!-- Dropdown Menu -->
+          <div id="profileDropdownMenu" class="hidden absolute right-0 mt-1.5 w-60 bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl shadow-xl p-1.5 z-50">
+            <div class="px-2.5 py-1.5 text-[11px] font-bold tracking-wider uppercase text-[#7c818c] flex items-center justify-between">
+              <span>Bettor Profiles</span>
+            </div>
+            <div id="profileDropdownItems" class="space-y-0.5">
+              <!-- Dynamically populated -->
+            </div>
+            <div class="my-1 border-t border-[#e8eaee] dark:border-[#2a2e37]"></div>
+            <button onclick="showNetflixAddProfileModal()" class="w-full text-left flex items-center gap-2 px-2.5 py-2 text-xs font-bold text-[#00b386] hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+              <span>+ Add New Profile</span>
+            </button>
+            <button onclick="openNetflixPicker()" class="w-full text-left flex items-center gap-2 px-2.5 py-2 text-xs font-semibold text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+              <span>Switch / Lock Profiles</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Admin Impersonation Notice Banner -->
+  <div id="adminImpersonationBanner" class="hidden w-full bg-amber-50 dark:bg-amber-950/70 border-b border-amber-200 dark:border-amber-800/60 px-4 sm:px-6 lg:px-8 py-2.5 z-20 transition-all">
+    <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+      <div class="flex items-center gap-2 font-medium">
+        <span class="text-amber-700 dark:text-amber-300 font-extrabold bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded-md text-[11px]">★ Admin Impersonation</span>
+        <span>Viewing <strong><span id="adminBannerUserName">Rohan</span>'s</strong> personal portfolio</span>
+      </div>
+      <button onclick="exitAdminView()" class="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition shadow-xs cursor-pointer">
+        Exit to Naveen
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content Frame (Expansive & Responsive on Desktop) -->
+  <main id="app" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 min-h-[calc(100vh-65px)] pb-24 md:pb-12 transition-colors">
+    <!-- Dynamic Content Rendered Here -->
+  </main>
+
+  <!-- Bottom Navigation (Mobile Only, Hidden on md and desktop) -->
+  <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 md:hidden bg-white dark:bg-[#181b22] border-t border-[#e8eaee] dark:border-[#2a2e37] z-30 flex items-center justify-around py-2 px-1 shadow-[0_-2px_10px_rgba(0,0,0,0.03)] transition-colors">
+    <button onclick="navigateTab('home')" class="nav-tab-btn flex-1 flex flex-col items-center justify-center py-1 text-[#7c818c] transition text-center" data-tab="home">
+      <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      <span class="text-[11px] font-medium leading-none">Home</span>
+    </button>
+    <button onclick="navigateTab('bets')" class="nav-tab-btn flex-1 flex flex-col items-center justify-center py-1 text-[#7c818c] transition text-center" data-tab="bets">
+      <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      <span class="text-[11px] font-medium leading-none">Bets</span>
+    </button>
+    <button onclick="navigateTab('analytics')" class="nav-tab-btn flex-1 flex flex-col items-center justify-center py-1 text-[#7c818c] transition text-center" data-tab="analytics">
+      <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      <span class="text-[11px] font-medium leading-none">Analytics</span>
+    </button>
+    <!-- Everyone Tab (Visible only to Admin Naveen) -->
+    <button id="everyoneNavTab" onclick="navigateTab('everyone')" class="nav-tab-btn flex-1 flex flex-col items-center justify-center py-1 text-[#7c818c] transition text-center" data-tab="everyone">
+      <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      <span class="text-[11px] font-medium leading-none">Everyone</span>
+    </button>
+    <button onclick="navigateTab('profile')" class="nav-tab-btn flex-1 flex flex-col items-center justify-center py-1 text-[#7c818c] transition text-center" data-tab="profile">
+      <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      <span class="text-[11px] font-medium leading-none">Profile</span>
+    </button>
+  </nav>
+
+  <!-- Floating Green '+' Action Button -->
+  <button id="fabAddBet" onclick="openAddBetSheet()" class="fixed right-6 bottom-20 md:bottom-8 md:right-8 w-14 h-14 rounded-full bg-[#00b386] hover:bg-[#009b74] active:scale-95 text-white flex items-center justify-center text-3xl font-light shadow-lg shadow-[#00b386]/40 z-30 transition-all cursor-pointer" aria-label="Log new bet" title="Log a bet in under 15 seconds">
+    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6"/></svg>
+  </button>
+
+</div>
+
+<!-- Full Screen Modal: Netflix-Style "Who's betting?" Screen (Initial landing) -->
+<div id="netflixAuthOverlay" class="fixed inset-0 bg-[#141414] text-white z-50 overflow-y-auto flex flex-col items-center justify-center p-6">
+  <div class="w-full max-w-xl mx-auto flex flex-col items-center">
+    <!-- Brand header -->
+    <div class="flex items-center gap-2 mb-8">
+      <div class="w-9 h-9 rounded-xl bg-[#00b386] flex items-center justify-center text-white font-black text-xl shadow-md">
+        B
+      </div>
+      <h1 class="text-3xl font-black tracking-tight text-white">BetBook</h1>
+    </div>
+
+    <!-- Step 1: Who's betting? Profile Selection -->
+    <div id="netflixStepPick" class="w-full text-center">
+      <h2 class="text-2xl sm:text-3xl font-semibold mb-2 tracking-tight">Who’s betting?</h2>
+      <p class="text-sm text-neutral-400 mb-8">Select your profile to view your personal betting portfolio</p>
+      
+      <!-- Profile Tiles Grid -->
+      <div id="netflixProfileTiles" class="flex flex-wrap items-center justify-center gap-6 sm:gap-8 max-w-lg mx-auto">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Action: Add Profile Button & Return to Dashboard if logged in -->
+      <div class="mt-8 pt-4 border-t border-neutral-800/80 flex items-center justify-center gap-3">
+        <button onclick="showNetflixStep('add')" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-neutral-800/90 hover:bg-neutral-700 active:scale-95 text-white text-xs font-bold border border-neutral-700/80 hover:border-[#00b386] transition shadow-md cursor-pointer">
+          <svg class="w-4 h-4 text-[#00b386]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>+ Create New Profile</span>
+        </button>
+        <button id="netflixDismissBtn" onclick="closeNetflixPicker()" class="hidden px-5 py-2.5 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 active:scale-95 text-neutral-300 hover:text-white text-xs font-semibold border border-neutral-700/70 transition cursor-pointer">
+          Close
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Password Screen for Selected Profile -->
+    <div id="netflixStepPassword" class="w-full max-w-sm text-center hidden">
+      <div id="netflixPasswordAvatar" class="w-24 h-24 rounded-2xl mx-auto mb-4 flex items-center justify-center text-4xl font-extrabold text-white shadow-xl ring-2 ring-white/20">
+        N
+      </div>
+      <h2 id="netflixPasswordName" class="text-2xl font-bold mb-1">Naveen</h2>
+      <p class="text-xs text-neutral-400 mb-6">Enter profile password to unlock portfolio</p>
+      
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">Profile Password / PIN</label>
+          <input id="netflixPasswordInput" type="password" placeholder="Enter password (demo: 1234)" class="w-full px-4 py-3 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#00b386] focus:border-transparent transition text-base">
+          <p class="text-[11px] text-neutral-400 mt-1">Hint: Default demo PIN for all profiles is <strong class="text-emerald-400">1234</strong></p>
+        </div>
+        <div id="netflixPasswordError" class="hidden text-xs text-[#eb5b3c] font-medium bg-red-950/40 p-2.5 rounded-lg border border-red-800/40 text-center"></div>
+
+        <button onclick="handleNetflixLogin()" class="w-full py-3.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] active:scale-[0.99] text-white font-bold text-sm tracking-wide transition shadow-lg shadow-emerald-900/30">
+          Enter Portfolio
+        </button>
+        <button onclick="showNetflixStep('pick')" class="w-full py-3 rounded-xl bg-transparent hover:bg-neutral-800/60 text-neutral-400 hover:text-white font-semibold text-sm border border-neutral-800 transition">
+          Back to Profiles
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Add New Profile Screen -->
+    <div id="netflixStepAdd" class="w-full max-w-sm text-left hidden">
+      <h2 class="text-2xl font-bold text-center mb-1">Add Profile</h2>
+      <p class="text-xs text-neutral-400 text-center mb-6">Create a private space for your bets</p>
+
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-medium text-neutral-300 mb-1">Bettor's Name</label>
+          <input id="newProfileName" oninput="checkIfAdminName(this.value)" type="text" placeholder="e.g. Vikram" maxlength="20" class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#00b386]">
+        </div>
+
+        <div id="adminSetupCodeWrapper" class="hidden p-3 rounded-xl bg-amber-950/40 border border-amber-600/40">
+          <label class="block text-xs font-semibold text-amber-300 mb-1">Admin Setup Code</label>
+          <input id="newProfileAdminCode" type="password" placeholder="Enter ADMIN_SETUP_CODE" class="w-full px-3 py-2 rounded-lg bg-neutral-900 border border-amber-500/50 text-white text-xs placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-amber-400">
+          <p class="text-[10px] text-amber-200/80 mt-1">Required to register the master admin profile.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-neutral-300 mb-1.5">Avatar Color</label>
+          <div id="avatarColorSwatches" class="flex items-center justify-between gap-2">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-neutral-300 mb-1">Starting Bankroll (₹)</label>
+          <input id="newProfileStartingBankroll" type="number" placeholder="e.g. 25000" class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#00b386]">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-neutral-300 mb-1">Password</label>
+          <input id="newProfilePassword" type="password" placeholder="At least 4 characters" class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#00b386]">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-neutral-300 mb-1">Confirm Password</label>
+          <input id="newProfileConfirmPassword" type="password" placeholder="Re-enter password" class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#00b386]">
+        </div>
+
+        <div id="newProfileError" class="hidden text-xs text-[#eb5b3c] font-medium bg-red-950/40 p-2.5 rounded-lg border border-red-800/40"></div>
+
+        <div class="pt-2 space-y-2">
+          <button onclick="handleCreateProfile()" class="w-full py-3 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white font-bold text-sm tracking-wide transition">
+            Create Profile & Start
+          </button>
+          <button onclick="if (state.activeUserId) closeNetflixPicker(); else showNetflixStep('pick');" class="w-full py-2.5 rounded-xl bg-transparent hover:bg-neutral-800 text-neutral-400 hover:text-white font-medium text-sm transition cursor-pointer">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Sheet & Desktop Dialog Container -->
+<div id="bottomSheetOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity" onclick="onSheetOverlayClick(event)">
+  <div id="bottomSheetContent" class="w-full max-w-[520px] sm:max-w-xl bg-white dark:bg-[#181b22] rounded-t-3xl sm:rounded-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden sheet-enter border-t sm:border border-[#e8eaee] dark:border-[#2a2e37]">
+    <!-- Sheet Drag Handle (Mobile only) -->
+    <div class="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing sm:hidden">
+      <div class="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+    </div>
+    <!-- Dynamic Inner Sheet Body -->
+    <div id="sheetBody" class="p-5 sm:p-6 overflow-y-auto">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Toast Feedback Notification -->
+<div id="toastNotification" class="fixed top-14 left-1/2 -translate-x-1/2 max-w-[90vw] sm:max-w-md bg-neutral-900/95 dark:bg-white/95 text-white dark:text-neutral-900 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-semibold z-50 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-10px]">
+  <span id="toastIcon">✓</span>
+  <span id="toastMessage">Action completed successfully</span>
+</div>
+
+<script>
+/**
+ * BETBOOK APPLICATION LOGIC & STATE ENGINE
+ * ----------------------------------------
+ * Pure frontend, self-contained architecture.
+ * Strictly adheres to calculation rules:
+ * - Won: stake * (odds - 1)
+ * - Lost: -stake
+ * - Void: 0 (excluded from win rate and ROI)
+ * - Cashed Out: amount_received - stake
+ * - Pending: no P&L yet, tracked as money at risk
+ * - Bankroll = starting_amount + deposits - withdrawals + settled_PL
+ * - ROI = total P&L / total staked on settled bets
+ * - Win rate = wins / (wins + losses)
+ */
+
+const STORAGE_KEY = 'betbook_state_v1';
+const AVATAR_COLORS = ["#00b386", "#3b82f6", "#e50914", "#f59e0b", "#8b5cf6", "#ec4899"];
+
+// Core App State
+let state = {
+  profiles: [],
+  activeUserId: null,
+  impersonatingUserId: null, // when admin is viewing another user
+  currentTab: 'home',
+  chartRange: 'ALL',
+  betFilter: 'All',
+  theme: 'light',
+  lastSelectedSport: 'Cricket'
+};
+
+let currentChartInstance = null;
+
+// Realistic Sample Dataset (~30 bets across 5 weeks, deposits, withdrawals)
+function getDefaultData() {
+  const today = new Date();
+  const d = (daysAgo) => {
+    const target = new Date(today);
+    target.setDate(today.getDate() - daysAgo);
+    return target.toISOString().split('T')[0];
+  };
+
+  return {
+    theme: 'light',
+    activeUserId: 'u1',
+    impersonatingUserId: null,
+    currentTab: 'home',
+    chartRange: 'ALL',
+    betFilter: 'All',
+    lastSelectedSport: 'Cricket',
+    profiles: [
+      {
+        id: 'u1',
+        name: 'Naveen',
+        role: 'admin',
+        color: '#00b386',
+        password: '1234',
+        startingBankroll: 50000,
+        createdAt: d(40),
+        txns: [
+          { id: 't1', type: 'deposit', amt: 10000, date: d(32), note: 'UPI bank reload' },
+          { id: 't2', type: 'deposit', amt: 5000, date: d(18), note: 'Bonus allocation' },
+          { id: 't3', type: 'withdrawal', amt: -8000, date: d(8), note: 'Profit booking to bank' }
+        ],
+        bets: [
+          // Week 5 (30-35 days ago)
+          { id: 'b1', event: 'India vs England - 3rd ODI', sport: 'Cricket', type: 'Single', odds: 1.85, stake: 2500, result: 'Won', ret: 0, date: d(34), tags: 'ODIs, Virat 50+' },
+          { id: 'b2', event: 'Arsenal vs Man City - Premier League', sport: 'Football', type: 'Single', odds: 2.10, stake: 2000, result: 'Lost', ret: 0, date: d(33), tags: 'EPL, Over 2.5' },
+          { id: 'b3', event: 'Alcaraz vs Sinner - ATP Masters Final', sport: 'Tennis', type: 'Single', odds: 1.95, stake: 3000, result: 'Won', ret: 0, date: d(31), tags: 'ATP, Sets Over 2.5' },
+          { id: 'b4', event: 'Lakers vs Warriors - NBA', sport: 'Basketball', type: 'Single', odds: 1.90, stake: 1500, result: 'Won', ret: 0, date: d(30), tags: 'NBA, Spread -3.5' },
+          
+          // Week 4 (22-28 days ago)
+          { id: 'b5', event: 'Puneri Paltan vs Jaipur Pink Panthers', sport: 'Kabaddi', type: 'Single', odds: 1.78, stake: 2000, result: 'Won', ret: 0, date: d(27), tags: 'PKL, Puneri Win' },
+          { id: 'b6', event: 'CSK vs MI - IPL Rivalry', sport: 'Cricket', type: 'Single', odds: 1.92, stake: 4000, result: 'Lost', ret: 0, date: d(25), tags: 'IPL, MI to Win' },
+          { id: 'b7', event: 'Real Madrid vs Barcelona - El Clasico', sport: 'Football', type: 'Single', odds: 2.25, stake: 3500, result: 'Won', ret: 0, date: d(24), tags: 'La Liga, BTTS' },
+          { id: 'b8', event: 'Djokovic vs Medvedev - Australian Open', sport: 'Tennis', type: 'Single', odds: 1.65, stake: 5000, result: 'Won', ret: 0, date: d(22), tags: 'Slam, Novak Win' },
+          
+          // Week 3 (15-21 days ago)
+          { id: 'b9', event: 'RCB vs KKR - IPL Match 12', sport: 'Cricket', type: 'Single', odds: 2.05, stake: 3000, result: 'Won', ret: 0, date: d(20), tags: 'IPL, Kohli 50+' },
+          { id: 'b10', event: 'Patna Pirates vs Bengaluru Bulls', sport: 'Kabaddi', type: 'Single', odds: 2.10, stake: 1500, result: 'Lost', ret: 0, date: d(19), tags: 'PKL' },
+          { id: 'b11', event: 'Liverpool vs Chelsea - Premier League', sport: 'Football', type: 'Single', odds: 1.80, stake: 3000, result: 'Won', ret: 0, date: d(17), tags: 'EPL, Anfield' },
+          { id: 'b12', event: 'Swiatek vs Sabalenka - WTA Final', sport: 'Tennis', type: 'Single', odds: 1.72, stake: 2500, result: 'Void', ret: 0, date: d(16), tags: 'WTA, Walkover' },
+          { id: 'b13', event: 'Bayern Munich vs Dortmund - Der Klassiker', sport: 'Football', type: 'Accumulator', odds: 3.40, stake: 1500, result: 'Lost', ret: 0, date: d(15), tags: 'Bundesliga, Acca' },
+
+          // Week 2 (8-14 days ago)
+          { id: 'b14', event: 'Gujarat Titans vs RR - IPL Match 24', sport: 'Cricket', type: 'Single', odds: 1.88, stake: 3500, result: 'Won', ret: 0, date: d(13), tags: 'IPL, Gill 40+' },
+          { id: 'b15', event: 'Celtics vs Heat - NBA East', sport: 'Basketball', type: 'Single', odds: 1.95, stake: 2000, result: 'Lost', ret: 0, date: d(12), tags: 'NBA' },
+          { id: 'b16', event: 'PSG vs Marseille - Le Classique', sport: 'Football', type: 'Live', odds: 2.40, stake: 2000, result: 'Cashed Out', ret: 3600, date: d(11), tags: 'Ligue 1, Early cash out' },
+          { id: 'b17', event: 'India vs New Zealand - Champions Trophy', sport: 'Cricket', type: 'Single', odds: 1.75, stake: 5000, result: 'Won', ret: 0, date: d(10), tags: 'ICC, India ML' },
+          { id: 'b18', event: 'U Mumba vs Dabang Delhi', sport: 'Kabaddi', type: 'Single', odds: 2.00, stake: 1500, result: 'Won', ret: 0, date: d(9), tags: 'PKL, Naveen Express' },
+
+          // Week 1 (1-7 days ago)
+          { id: 'b19', event: 'Sunrisers Hyderabad vs DC - IPL', sport: 'Cricket', type: 'Single', odds: 1.70, stake: 4500, result: 'Won', ret: 0, date: d(6), tags: 'IPL, SRH 200+' },
+          { id: 'b20', event: 'Inter Milan vs Juventus - Derby d\'Italia', sport: 'Football', type: 'Single', odds: 2.15, stake: 2500, result: 'Lost', ret: 0, date: d(5), tags: 'Serie A' },
+          { id: 'b21', event: 'Zverev vs Rune - Paris Masters', sport: 'Tennis', type: 'Single', odds: 1.82, stake: 3000, result: 'Won', ret: 0, date: d(4), tags: 'ATP' },
+          { id: 'b22', event: 'Nuggets vs Suns - NBA West', sport: 'Basketball', type: 'Single', odds: 2.05, stake: 2000, result: 'Cashed Out', ret: 1400, date: d(3), tags: 'NBA, Hedged loss' },
+          { id: 'b23', event: 'England vs West Indies - 1st Test Day 4', sport: 'Cricket', type: 'Single', odds: 1.90, stake: 3000, result: 'Won', ret: 0, date: d(2), tags: 'Test Cricket, Eng Win' },
+          { id: 'b24', event: 'Atletico Madrid vs Sevilla - La Liga', sport: 'Football', type: 'Single', odds: 1.85, stake: 2500, result: 'Won', ret: 0, date: d(1), tags: 'La Liga, Clean sheet' },
+          
+          // Current / Pending Bets
+          { id: 'b25', event: 'India vs Australia - Border Gavaskar 1st Test', sport: 'Cricket', type: 'Single', odds: 2.10, stake: 3500, result: 'Pending', ret: 0, date: d(0), tags: 'Test, High stake' },
+          { id: 'b26', event: 'Real Madrid vs Man City - UCL Quarter-Final', sport: 'Football', type: 'Single', odds: 2.45, stake: 2000, result: 'Pending', ret: 0, date: d(0), tags: 'UCL, Big match' }
+        ]
+      },
+      {
+        id: 'u2',
+        name: 'Rohan',
+        role: 'user',
+        color: '#3b82f6',
+        password: '1234',
+        startingBankroll: 20000,
+        createdAt: d(35),
+        txns: [
+          { id: 't201', type: 'deposit', amt: 5000, date: d(20), note: 'Weekend reload' }
+        ],
+        bets: [
+          { id: 'rb1', event: 'Man United vs Liverpool - EPL', sport: 'Football', type: 'Single', odds: 2.50, stake: 2000, result: 'Lost', ret: 0, date: d(25), tags: 'EPL' },
+          { id: 'rb2', event: 'Haryana Steelers vs Tamil Thalaivas', sport: 'Kabaddi', type: 'Single', odds: 1.85, stake: 1500, result: 'Won', ret: 0, date: d(22), tags: 'PKL' },
+          { id: 'rb3', event: 'Barcelona vs Atletico - La Liga', sport: 'Football', type: 'Single', odds: 1.95, stake: 2500, result: 'Won', ret: 0, date: d(18), tags: 'La Liga' },
+          { id: 'rb4', event: 'Chelsea vs Newcastle', sport: 'Football', type: 'Single', odds: 2.10, stake: 2000, result: 'Lost', ret: 0, date: d(14), tags: 'EPL' },
+          { id: 'rb5', event: 'Telugu Titans vs Bengal Warriors', sport: 'Kabaddi', type: 'Single', odds: 2.20, stake: 1500, result: 'Lost', ret: 0, date: d(8), tags: 'PKL' },
+          { id: 'rb6', event: 'Arsenal vs Aston Villa', sport: 'Football', type: 'Single', odds: 1.75, stake: 3000, result: 'Won', ret: 0, date: d(3), tags: 'EPL' },
+          { id: 'rb7', event: 'Dortmund vs Leverkusen', sport: 'Football', type: 'Single', odds: 2.30, stake: 1500, result: 'Pending', ret: 0, date: d(0), tags: 'Bundesliga' }
+        ]
+      },
+      {
+        id: 'u3',
+        name: 'Priya',
+        role: 'user',
+        color: '#ec4899',
+        password: '1234',
+        startingBankroll: 35000,
+        createdAt: d(38),
+        txns: [
+          { id: 't301', type: 'deposit', amt: 5000, date: d(28), note: 'Bank transfer' },
+          { id: 't302', type: 'withdrawal', amt: -10000, date: d(12), note: 'Winnings withdrawal' }
+        ],
+        bets: [
+          { id: 'pb1', event: 'Wimbledon Men\'s Quarter-Final', sport: 'Tennis', type: 'Single', odds: 1.65, stake: 4000, result: 'Won', ret: 0, date: d(26), tags: 'Tennis' },
+          { id: 'pb2', event: 'India Women vs Australia Women - T20', sport: 'Cricket', type: 'Single', odds: 1.90, stake: 3000, result: 'Won', ret: 0, date: d(21), tags: 'Cricket' },
+          { id: 'pb3', event: '4-Fold Tennis Weekend Acca', sport: 'Tennis', type: 'Accumulator', odds: 4.10, stake: 1500, result: 'Lost', ret: 0, date: d(16), tags: 'Acca' },
+          { id: 'pb4', event: 'Swiatek vs Gauff - French Open', sport: 'Tennis', type: 'Single', odds: 1.55, stake: 5000, result: 'Won', ret: 0, date: d(10), tags: 'Tennis, Safe' },
+          { id: 'pb5', event: 'MI vs CSK Women\'s Premier League', sport: 'Cricket', type: 'Single', odds: 1.80, stake: 3500, result: 'Won', ret: 0, date: d(4), tags: 'WPL' },
+          { id: 'pb6', event: 'US Open Mixed Doubles Final', sport: 'Tennis', type: 'Single', odds: 2.10, stake: 2000, result: 'Pending', ret: 0, date: d(1), tags: 'Tennis' }
+        ]
+      }
+    ]
+  };
+}
+
+// Storage Helpers
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.profiles && parsed.profiles.length) {
+        state = { ...state, ...parsed };
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading from localStorage, initializing fresh data', e);
+  }
+  state = getDefaultData();
+  saveState();
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('Failed to save to localStorage', e);
+  }
+}
+
+// ----------------------------------------------------
+// DATABASE & API CLIENT INTEGRATION ENGINE
+// ----------------------------------------------------
+let isApiMode = false;
+let currentDbUser = null;
+
+async function checkApiConnection() {
+  if (window.location.protocol === 'file:') {
+    isApiMode = false;
+    updateDbStatusBadge();
+    return null;
+  }
+
+  try {
+    const res = await fetch('/api/auth?action=me', { credentials: 'include' });
+    if (res.ok) {
+      isApiMode = true;
+      currentDbUser = await res.json();
+      updateDbStatusBadge();
+      return currentDbUser;
+    } else if (res.status === 401 || res.status === 400) {
+      // API is running and reachable, but no session cookie yet
+      isApiMode = true;
+      updateDbStatusBadge();
+      return null;
+    }
+  } catch (e) {
+    // Network failure or static file viewer
+    isApiMode = false;
+  }
+  updateDbStatusBadge();
+  return null;
+}
+
+function updateDbStatusBadge() {
+  const badge = document.getElementById('dbStatusBadge');
+  if (!badge) return;
+  if (isApiMode) {
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>MongoDB Live</span>`;
+    badge.className = "hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight bg-emerald-50 dark:bg-emerald-950/60 text-[#00b386] border border-emerald-200/60 dark:border-emerald-800/40";
+    badge.title = "Connected to central MongoDB Atlas database. All records are shared and synced.";
+  } else {
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Local Offline</span>`;
+    badge.className = "hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40";
+    badge.title = "Running locally. Data is stored in browser cache.";
+  }
+}
+
+function applyUserData(u) {
+  if (!u) return;
+  let target = state.profiles.find(p => p.id === u.id);
+  if (!target) {
+    target = {
+      id: u.id,
+      name: u.name,
+      color: u.color,
+      role: u.admin ? 'admin' : (u.name && u.name.toLowerCase() === 'naveen' ? 'admin' : 'user'),
+      bets: [],
+      txns: [],
+      startingBankroll: 0
+    };
+    state.profiles.push(target);
+  }
+  target.name = u.name;
+  if (u.color) target.color = u.color;
+  if (u.admin != null) target.role = u.admin ? 'admin' : (u.name && u.name.toLowerCase() === 'naveen' ? 'admin' : 'user');
+  if (u.start != null) target.startingBankroll = u.start;
+  else if (u.startingBankroll != null) target.startingBankroll = u.startingBankroll;
+  target.bets = u.bets || [];
+  target.txns = u.txns || [];
+  saveState();
+}
+
+async function fetchUserData(userId) {
+  if (!isApiMode) return;
+  try {
+    const url = userId ? `/api/data?user=${userId}` : '/api/data';
+    const res = await fetch(url, { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      applyUserData(data);
+      renderApp();
+    }
+  } catch (e) {
+    console.error('Error fetching data from database:', e);
+  }
+}
+
+async function loadEveryoneData() {
+  if (!isApiMode) return;
+  try {
+    const res = await fetch('/api/admin', { credentials: 'include' });
+    if (res.ok) {
+      const allUsers = await res.json();
+      if (Array.isArray(allUsers)) {
+        // Synchronize state.profiles to match MongoDB (removes deleted users)
+        const ids = new Set(allUsers.map(u => u.id));
+        state.profiles = state.profiles.filter(p => ids.has(p.id));
+        allUsers.forEach(u => applyUserData(u));
+        saveState();
+        renderApp();
+      }
+    }
+  } catch (e) {
+    console.error('Error loading everyone from admin API:', e);
+  }
+}
+
+function checkIfAdminName(nameVal) {
+  const codeWrapper = document.getElementById('adminSetupCodeWrapper');
+  if (!codeWrapper) return;
+  if (nameVal && nameVal.trim().toLowerCase() === 'naveen') {
+    codeWrapper.classList.remove('hidden');
+  } else {
+    codeWrapper.classList.add('hidden');
+  }
+}
+
+function resetToDemoData() {
+  if (confirm("Reset BetBook to realistic demo data? All custom bets and profiles will be restored to defaults.")) {
+    state = getDefaultData();
+    saveState();
+    closeSheet();
+    showToast("Demo dataset restored successfully");
+    renderApp();
+  }
+}
+
+// Formatters
+function fmtRupee(num) {
+  if (num === null || num === undefined || isNaN(num)) return '₹0';
+  const isNeg = num < 0;
+  const abs = Math.abs(Math.round(num));
+  return (isNeg ? '-' : '') + '₹' + abs.toLocaleString('en-IN');
+}
+
+function fmtSignedRupee(num) {
+  if (num === null || num === undefined || isNaN(num)) return '₹0';
+  const prefix = num > 0 ? '+' : '';
+  return prefix + fmtRupee(num);
+}
+
+// Bet Calculation Helpers (Strict Product Rules)
+function calcBetPL(b) {
+  if (b.result === 'Won') {
+    return b.stake * (b.odds - 1);
+  } else if (b.result === 'Lost') {
+    return -b.stake;
+  } else if (b.result === 'Cashed Out') {
+    return (b.ret || 0) - b.stake;
+  } else if (b.result === 'Void') {
+    return 0;
+  }
+  // Pending
+  return 0;
+}
+
+function isBetSettled(b) {
+  return ['Won', 'Lost', 'Cashed Out'].includes(b.result);
+}
+
+// Resilient Fallback Profile
+const FALLBACK_PROFILE = {
+  id: 'guest',
+  name: 'Guest',
+  role: 'user',
+  color: '#00b386',
+  startingBankroll: 0,
+  bets: [],
+  txns: []
+};
+
+// Active Profile & Targeting
+function getActiveProfile() {
+  const targetId = state.impersonatingUserId || state.activeUserId;
+  return state.profiles.find(p => p.id === targetId) || state.profiles[0] || FALLBACK_PROFILE;
+}
+
+function getLoggedInProfile() {
+  return state.profiles.find(p => p.id === state.activeUserId) || state.profiles[0] || FALLBACK_PROFILE;
+}
+
+function isLoggedAsAdmin() {
+  const me = getLoggedInProfile();
+  return me && me.role === 'admin';
+}
+
+// Portfolio & Metrics Calculation
+function calculateUserPortfolio(user) {
+  const u = user || FALLBACK_PROFILE;
+  const settledBets = (u.bets || []).filter(isBetSettled).sort((a, b) => (a.date < b.date ? -1 : 1));
+  const pendingBets = (u.bets || []).filter(b => b.result === 'Pending');
+
+  // Settled Profit & Loss
+  const settledPL = settledBets.reduce((acc, b) => acc + calcBetPL(b), 0);
+  const totalSettledStaked = settledBets.reduce((acc, b) => acc + b.stake, 0);
+  
+  // Win / Loss Count
+  const wins = user.bets.filter(b => b.result === 'Won').length;
+  const losses = user.bets.filter(b => b.result === 'Lost').length;
+  const voidCount = user.bets.filter(b => b.result === 'Void').length;
+  const cashedOutCount = user.bets.filter(b => b.result === 'Cashed Out').length;
+  
+  // Formulas
+  const winRate = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0;
+  const roi = totalSettledStaked > 0 ? (settledPL / totalSettledStaked) * 100 : 0;
+  
+  // Deposits & Withdrawals
+  const totalDeposits = (user.txns || []).filter(t => t.amt > 0).reduce((acc, t) => acc + t.amt, 0);
+  const totalWithdrawals = (user.txns || []).filter(t => t.amt < 0).reduce((acc, t) => acc + Math.abs(t.amt), 0);
+  
+  // Bankroll = starting + deposits - withdrawals + settled P&L
+  const currentBankroll = (user.startingBankroll || 0) + totalDeposits - totalWithdrawals + settledPL;
+  
+  // Change since start (P&L as % of net capital injected)
+  const netCapital = (user.startingBankroll || 0) + totalDeposits - totalWithdrawals;
+  const changePercentage = netCapital > 0 ? (settledPL / netCapital) * 100 : 0;
+
+  // Pending money at risk
+  const pendingMoneyAtRisk = pendingBets.reduce((acc, b) => acc + b.stake, 0);
+
+  // Streaks calculation (consecutive settled bets by date)
+  let currentStreak = 0;
+  let maxWinStreak = 0;
+  let maxLossStreak = 0;
+  let tempStreak = 0;
+  let lastOutcome = null;
+
+  settledBets.forEach(b => {
+    const outcome = calcBetPL(b) >= 0 ? 1 : -1;
+    if (outcome === lastOutcome) {
+      tempStreak += outcome;
+    } else {
+      tempStreak = outcome;
+      lastOutcome = outcome;
+    }
+    if (tempStreak > maxWinStreak) maxWinStreak = tempStreak;
+    if (tempStreak < maxLossStreak) maxLossStreak = tempStreak;
+  });
+  currentStreak = tempStreak; // positive is win streak, negative is loss streak
+
+  // Max Drawdown calculation over equity curve
+  // Timeline events: starting capital + deposits/withdrawals + settled bets
+  const timelineEvents = [
+    { date: user.createdAt || '2026-01-01', delta: user.startingBankroll || 0, label: 'Start' },
+    ...(user.txns || []).map(t => ({ date: t.date, delta: t.amt, label: 'Txn' })),
+    ...settledBets.map(b => ({ date: b.date, delta: calcBetPL(b), label: b.event }))
+  ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  let runningEquity = 0;
+  let peakEquity = 0;
+  let maxDrawdownAmt = 0;
+  let maxDrawdownPct = 0;
+
+  const equityCurvePoints = timelineEvents.map(e => {
+    runningEquity += e.delta;
+    if (runningEquity > peakEquity) {
+      peakEquity = runningEquity;
+    }
+    const drop = peakEquity - runningEquity;
+    if (drop > maxDrawdownAmt) {
+      maxDrawdownAmt = drop;
+      maxDrawdownPct = peakEquity > 0 ? (drop / peakEquity) * 100 : 0;
+    }
+    return { date: e.date, val: runningEquity, label: e.label };
+  });
+
+  // Best & Worst Settled Bet
+  const sortedByPL = [...settledBets].sort((a, b) => calcBetPL(b) - calcBetPL(a));
+  const bestBet = sortedByPL.length ? sortedByPL[0] : null;
+  const worstBet = sortedByPL.length ? sortedByPL[sortedByPL.length - 1] : null;
+
+  return {
+    currentBankroll,
+    settledPL,
+    totalSettledStaked,
+    roi,
+    winRate,
+    wins,
+    losses,
+    voidCount,
+    cashedOutCount,
+    totalDeposits,
+    totalWithdrawals,
+    pendingBetsCount: pendingBets.length,
+    pendingMoneyAtRisk,
+    currentStreak,
+    maxWinStreak,
+    maxLossStreak: Math.abs(maxLossStreak),
+    maxDrawdownAmt,
+    maxDrawdownPct,
+    equityCurvePoints,
+    bestBet,
+    worstBet,
+    changePercentage
+  };
+}
+
+// Gentle animated count-up for the big bankroll number
+function animateCountUp(elementId, targetValue, duration = 650) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const startVal = 0;
+  const startTime = performance.now();
+  
+  function updateNumber(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // Smooth ease-out quad
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const current = startVal + (targetValue - startVal) * ease;
+    el.textContent = fmtRupee(current);
+    if (progress < 1) {
+      requestAnimationFrame(updateNumber);
+    } else {
+      el.textContent = fmtRupee(targetValue);
+    }
+  }
+  requestAnimationFrame(updateNumber);
+}
+
+// Theme Handlers
+function initTheme() {
+  if (state.theme === 'dark') {
+    document.documentElement.classList.add('dark');
+    document.getElementById('sunIcon')?.classList.remove('hidden');
+    document.getElementById('moonIcon')?.classList.add('hidden');
+  } else {
+    document.documentElement.classList.remove('dark');
+    document.getElementById('sunIcon')?.classList.add('hidden');
+    document.getElementById('moonIcon')?.classList.remove('hidden');
+  }
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  saveState();
+  initTheme();
+  // re-render current chart for proper axis colors
+  if (state.currentTab === 'home') {
+    setTimeout(renderGrowthChart, 50);
+  }
+}
+
+// Navigation & Tab Switching
+function navigateTab(tabName) {
+  state.currentTab = tabName;
+  saveState();
+  renderApp();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  if (tabName === 'everyone' && isApiMode) {
+    loadEveryoneData();
+  } else if (tabName === 'home' && isApiMode) {
+    const targetUserId = state.impersonatingUserId || state.activeUserId;
+    fetchUserData(targetUserId);
+  }
+}
+
+function updateNavButtons() {
+  // Update Mobile Bottom Nav Buttons
+  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+    const tab = btn.getAttribute('data-tab');
+    if (tab === state.currentTab) {
+      btn.classList.add('text-[#00b386]', 'font-bold');
+      btn.classList.remove('text-[#7c818c]', 'font-medium');
+    } else {
+      btn.classList.remove('text-[#00b386]', 'font-bold');
+      btn.classList.add('text-[#7c818c]', 'font-medium');
+    }
+  });
+
+  // Update Desktop Header Nav Buttons
+  document.querySelectorAll('.desktop-nav-btn').forEach(btn => {
+    const tab = btn.getAttribute('data-tab');
+    if (tab === state.currentTab) {
+      btn.classList.add('bg-white', 'dark:bg-[#181b22]', 'text-[#00b386]', 'font-bold', 'shadow-xs');
+      btn.classList.remove('text-[#7c818c]');
+    } else {
+      btn.classList.remove('bg-white', 'dark:bg-[#181b22]', 'text-[#00b386]', 'font-bold', 'shadow-xs');
+      btn.classList.add('text-[#7c818c]');
+    }
+  });
+
+  // Show/Hide "Everyone" tab for admin Naveen only (mobile & desktop)
+  const isAdmin = isLoggedAsAdmin();
+  const everyoneMobile = document.getElementById('everyoneNavTab');
+  const everyoneDesktop = document.getElementById('everyoneDesktopNavTab');
+  if (everyoneMobile) everyoneMobile.classList.toggle('hidden', !isAdmin);
+  if (everyoneDesktop) everyoneDesktop.classList.toggle('hidden', !isAdmin);
+}
+
+// Admin Impersonation Handling
+async function viewUserAsAdmin(userId) {
+  state.impersonatingUserId = userId;
+  state.currentTab = 'home';
+  if (isApiMode) {
+    await fetchUserData(userId);
+  }
+  saveState();
+  renderApp();
+  showToast(`Viewing ${getActiveProfile().name}'s portfolio as Admin`);
+}
+
+function exitAdminView() {
+  state.impersonatingUserId = null;
+  state.currentTab = 'everyone';
+  saveState();
+  renderApp();
+  showToast("Returned to Naveen (Admin)");
+}
+
+// Master Admin: Delete / Remove Bettor Profile from Database
+async function deleteUserProfile(userId, userName) {
+  if (!isLoggedAsAdmin()) {
+    showToast("Admin privileges required", "⚠️");
+    return;
+  }
+  const target = state.profiles.find(p => p.id === userId);
+  const name = userName || (target ? target.name : 'this bettor');
+
+  if (target && (target.role === 'admin' || (target.name && target.name.toLowerCase() === 'naveen'))) {
+    alert("The master admin account (Naveen) cannot be deleted.");
+    return;
+  }
+
+  const confirmed = confirm(`Are you sure you want to permanently delete bettor "${name}"?\n\nThis will remove their profile and all their bets and transactions from the MongoDB Atlas database.`);
+  if (!confirmed) return;
+
+  if (isApiMode) {
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'deleteUser', user: userId })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to delete user from database.');
+        return;
+      }
+      if (data.all && Array.isArray(data.all)) {
+        const ids = new Set(data.all.map(u => u.id));
+        state.profiles = state.profiles.filter(p => ids.has(p.id));
+        data.all.forEach(u => applyUserData(u));
+      } else {
+        state.profiles = state.profiles.filter(p => p.id !== userId);
+      }
+    } catch (e) {
+      alert('Network error deleting profile from database.');
+      return;
+    }
+  } else {
+    state.profiles = state.profiles.filter(p => p.id !== userId);
+  }
+
+  if (state.impersonatingUserId === userId) {
+    state.impersonatingUserId = null;
+    state.currentTab = 'home';
+  }
+
+  saveState();
+  renderApp();
+  showToast(`Profile "${name}" and all records removed from DB`, '🗑️');
+}
+
+// Quick Profile Dropdown Menu in Header
+function toggleProfileDropdown() {
+  const menu = document.getElementById('profileDropdownMenu');
+  if (!menu) return;
+  menu.classList.toggle('hidden');
+  if (!menu.classList.contains('hidden')) {
+    populateProfileDropdown();
+  }
+}
+
+function populateProfileDropdown() {
+  const itemsContainer = document.getElementById('profileDropdownItems');
+  if (!itemsContainer) return;
+
+  const currentActive = getActiveProfile();
+
+  itemsContainer.innerHTML = state.profiles.map(p => {
+    const isSelected = p.id === currentActive.id;
+    return `
+      <button onclick="switchProfileDirectly('${p.id}')" class="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition ${isSelected ? 'bg-emerald-50 dark:bg-emerald-950/40 text-[#00b386] font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-[#1b1d21] dark:text-neutral-200'}">
+        <div class="flex items-center gap-2">
+          <div class="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px] font-bold" style="background:${p.color}">
+            ${p.name.charAt(0).toUpperCase()}
+          </div>
+          <span>${p.name}</span>
+          ${p.role === 'admin' ? '<span class="text-[9px] text-[#00b386] font-bold">★ Admin</span>' : ''}
+        </div>
+        ${isSelected ? '<span class="text-xs">✓</span>' : ''}
+      </button>
+    `;
+  }).join('');
+}
+
+function switchProfileDirectly(userId) {
+  document.getElementById('profileDropdownMenu')?.classList.add('hidden');
+  const target = state.profiles.find(p => p.id === userId);
+  if (!target) return;
+
+  // If already active, return
+  if (state.activeUserId === userId && !state.impersonatingUserId) return;
+
+  // If logged in as admin, switch view or active
+  if (isLoggedAsAdmin()) {
+    if (userId === state.activeUserId) {
+      state.impersonatingUserId = null;
+    } else {
+      state.impersonatingUserId = userId;
+    }
+  } else {
+    // Regular user switching profile requires authentication via Netflix screen
+    openNetflixPasswordStep(userId);
+    return;
+  }
+  
+  saveState();
+  renderApp();
+  showToast(`Switched portfolio to ${getActiveProfile().name}`);
+}
+
+// Close profile dropdown when clicking outside
+window.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('profileDropdownMenu');
+  const btn = document.getElementById('profileDropdownBtn');
+  if (dropdown && !dropdown.contains(e.target) && btn && !btn.contains(e.target)) {
+    dropdown.classList.add('hidden');
+  }
+});
+
+// Toast Notifications
+let toastTimeout = null;
+function showToast(msg, icon = '✓') {
+  const toast = document.getElementById('toastNotification');
+  const msgEl = document.getElementById('toastMessage');
+  const iconEl = document.getElementById('toastIcon');
+  if (!toast || !msgEl) return;
+
+  msgEl.textContent = msg;
+  if (iconEl) iconEl.textContent = icon;
+
+  toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+  toast.classList.add('opacity-100', 'translate-y-0');
+
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    toast.classList.remove('opacity-100', 'translate-y-0');
+    toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+  }, 2400);
+}
+
+// Bottom Sheet Engine
+function openSheet(htmlContent) {
+  const overlay = document.getElementById('bottomSheetOverlay');
+  const content = document.getElementById('bottomSheetContent');
+  const body = document.getElementById('sheetBody');
+  if (!overlay || !content || !body) return;
+
+  body.innerHTML = htmlContent;
+  overlay.classList.remove('hidden');
+  setTimeout(() => {
+    content.classList.add('sheet-entered');
+  }, 10);
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSheet() {
+  const overlay = document.getElementById('bottomSheetOverlay');
+  const content = document.getElementById('bottomSheetContent');
+  if (!overlay || !content) return;
+
+  content.classList.remove('sheet-entered');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+  }, 220);
+}
+
+function onSheetOverlayClick(e) {
+  if (e.target.id === 'bottomSheetOverlay') {
+    closeSheet();
+  }
+}
+
+// ----------------------------------------------------
+// SCREEN 1: HOME
+// ----------------------------------------------------
+function renderHomeScreen() {
+  const u = getActiveProfile();
+  const port = calculateUserPortfolio(u);
+
+  const changeIsPositive = port.settledPL >= 0;
+  const changeBgClass = changeIsPositive ? 'bg-emerald-50 dark:bg-emerald-950/40 text-[#00b386]' : 'bg-red-50 dark:bg-red-950/40 text-[#eb5b3c]';
+
+  // Recent bets (up to 5 for desktop feed)
+  const recentBets = [...u.bets].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
+
+  // Community-wide calculations for Admin Naveen
+  const isAdminLoggedIn = isLoggedAsAdmin() && !state.impersonatingUserId;
+  let communityStats = null;
+  if (isAdminLoggedIn) {
+    let totalCommunityBankroll = 0;
+    let totalCommunitySettledPL = 0;
+    let totalCommunityStaked = 0;
+    let totalCommunityBets = 0;
+    let totalCommunityWins = 0;
+    let totalCommunityLosses = 0;
+
+    state.profiles.forEach(p => {
+      const pPort = calculateUserPortfolio(p);
+      totalCommunityBankroll += pPort.currentBankroll;
+      totalCommunitySettledPL += pPort.settledPL;
+      totalCommunityStaked += pPort.totalSettledStaked;
+      totalCommunityBets += (p.bets || []).length;
+      totalCommunityWins += pPort.wins;
+      totalCommunityLosses += pPort.losses;
+    });
+
+    const communityWinRate = (totalCommunityWins + totalCommunityLosses) > 0 
+      ? (totalCommunityWins / (totalCommunityWins + totalCommunityLosses)) * 100 
+      : 0;
+    const communityRoi = totalCommunityStaked > 0 
+      ? (totalCommunitySettledPL / totalCommunityStaked) * 100 
+      : 0;
+
+    communityStats = {
+      totalBankroll: totalCommunityBankroll,
+      totalSettledPL: totalCommunitySettledPL,
+      totalBets: totalCommunityBets,
+      bettorCount: state.profiles.length,
+      winRate: communityWinRate,
+      roi: communityRoi
+    };
+  }
+
+  return `
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Left Main Column (8 cols on lg) -->
+      <div class="lg:col-span-8 space-y-6">
+        <!-- Greeting & Huge Bankroll Number Card -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between text-[#7c818c] dark:text-[#9aa0ac] text-xs font-semibold mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-[#1b1d21] dark:text-white">${state.impersonatingUserId ? `${u.name}'s Portfolio` : `Hi, ${u.name}`}</span>
+              <button onclick="openEditBankrollSheet()" class="p-1 rounded-md text-[#7c818c] hover:text-[#00b386] hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer" title="Edit name & starting capital">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              </button>
+            </div>
+            <button onclick="openEditBankrollSheet()" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-600 dark:text-slate-300 hover:text-[#00b386] px-2.5 py-1 rounded-xl border border-[#e8eaee] dark:border-[#2a2e37] transition cursor-pointer" title="Click pencil to set or edit your starting bankroll">
+              <span>Starting Capital: ${fmtRupee(u.startingBankroll)}</span>
+              <svg class="w-3.5 h-3.5 text-[#00b386]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            </button>
+          </div>
+          
+          <!-- Big Number (Principle 2) -->
+          <div class="flex items-baseline gap-2 mb-2">
+            <h1 id="homeBankrollNumber" class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#1b1d21] dark:text-white">
+              ${fmtRupee(port.currentBankroll)}
+            </h1>
+          </div>
+
+          <!-- Green or Red Change Since Start with Percentage -->
+          <div class="flex items-center gap-2 mb-4">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${changeBgClass}">
+              ${port.settledPL >= 0 ? '▲' : '▼'} ${fmtSignedRupee(port.settledPL)} (${port.changePercentage >= 0 ? '+' : ''}${port.changePercentage.toFixed(1)}%)
+            </span>
+            <span class="text-xs text-[#7c818c] dark:text-[#9aa0ac]">overall settled P&amp;L</span>
+          </div>
+
+          <!-- Quick Actions: Deposit, Withdraw & Log Bet -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-4 border-t border-[#e8eaee] dark:border-[#2a2e37]">
+            <button onclick="openTransactionSheet('deposit')" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-bold text-[#1b1d21] dark:text-white transition cursor-pointer">
+              <span class="text-[#00b386] text-sm font-extrabold">+</span> Deposit Funds
+            </button>
+            <button onclick="openTransactionSheet('withdrawal')" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-bold text-[#1b1d21] dark:text-white transition cursor-pointer">
+              <span class="text-[#eb5b3c] text-sm font-extrabold">-</span> Record Withdrawal
+            </button>
+            <button onclick="openAddBetSheet()" class="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white text-xs font-bold transition shadow-xs cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+              <span>Log New Bet</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Growth Chart Card with 1W / 1M / 3M / ALL toggles -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <span class="text-sm font-bold text-[#1b1d21] dark:text-white tracking-wide block">Bankroll Growth</span>
+              <span class="text-[11px] text-[#7c818c]">Real-time portfolio equity curve</span>
+            </div>
+            <!-- Range Filter Chips -->
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl">
+              ${['1W', '1M', '3M', 'ALL'].map(rng => `
+                <button onclick="setChartRange('${rng}')" class="px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${state.chartRange === rng ? 'bg-white dark:bg-[#181b22] text-[#00b386] shadow-sm font-bold' : 'text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white'}">
+                  ${rng}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          
+          <!-- Canvas for Chart.js Area Chart (Height expanded for desktop) -->
+          <div class="relative w-full h-56 sm:h-64 lg:h-72">
+            <canvas id="growthChartCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Four Summary KPI Cards in 4-columns on desktop -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <!-- 1: Betting P&L -->
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+            <span class="text-xs text-[#7c818c] dark:text-[#9aa0ac] font-medium block">Betting P&amp;L</span>
+            <div class="text-xl font-bold mt-1 ${port.settledPL >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+              ${fmtSignedRupee(port.settledPL)}
+            </div>
+            <span class="text-[11px] text-[#7c818c] block mt-0.5">on settled trades</span>
+          </div>
+
+          <!-- 2: ROI -->
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+            <span class="text-xs text-[#7c818c] dark:text-[#9aa0ac] font-medium block">ROI</span>
+            <div class="text-xl font-bold mt-1 ${port.roi >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+              ${port.roi >= 0 ? '+' : ''}${port.roi.toFixed(1)}%
+            </div>
+            <span class="text-[11px] text-[#7c818c] block mt-0.5">${fmtRupee(port.totalSettledStaked)} staked</span>
+          </div>
+
+          <!-- 3: Win Rate -->
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+            <span class="text-xs text-[#7c818c] dark:text-[#9aa0ac] font-medium block">Win Rate</span>
+            <div class="text-xl font-bold mt-1 text-[#1b1d21] dark:text-white">
+              ${port.winRate.toFixed(1)}%
+            </div>
+            <span class="text-[11px] text-[#7c818c] block mt-0.5">${port.wins}W · ${port.losses}L</span>
+          </div>
+
+          <!-- 4: Pending Money at Risk -->
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+            <span class="text-xs text-[#7c818c] dark:text-[#9aa0ac] font-medium block">Pending</span>
+            <div class="text-xl font-bold mt-1 text-[#1b1d21] dark:text-white">
+              ${port.pendingBetsCount} <span class="text-xs font-normal text-[#7c818c]">bets</span>
+            </div>
+            <span class="text-[11px] text-amber-600 dark:text-amber-400 font-semibold block mt-0.5">${fmtRupee(port.pendingMoneyAtRisk)} at risk</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Desktop Column (4 cols on lg) -->
+      <div class="lg:col-span-4 space-y-6">
+        
+        <!-- Streaks & Portfolio Snapshot Card -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-5 shadow-sm space-y-3.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-[#7c818c]">Portfolio Pulse</span>
+            <span class="text-xs text-[#00b386] font-semibold">Active</span>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[#e8eaee] dark:border-[#2a2e37]">
+              <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">Current Streak</span>
+              <span class="text-sm font-bold ${port.currentStreak >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+                ${port.currentStreak > 0 ? `🔥 ${port.currentStreak} Wins` : port.currentStreak < 0 ? `❄️ ${Math.abs(port.currentStreak)} Losses` : 'Even'}
+              </span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[#e8eaee] dark:border-[#2a2e37]">
+              <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">Max Drawdown</span>
+              <span class="text-sm font-bold text-[#eb5b3c]">
+                ${fmtRupee(port.maxDrawdownAmt)}
+              </span>
+            </div>
+          </div>
+
+          <div class="pt-1">
+            <button onclick="openAddBetSheet()" class="w-full py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-[#00b386] text-xs font-bold border border-emerald-200/60 dark:border-emerald-800/40 transition flex items-center justify-center gap-2 cursor-pointer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+              <span>Quick Log Bet (&lt; 15s)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent Bets Card -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-xs font-bold uppercase tracking-wider text-[#7c818c]">Recent Bets</h2>
+              <span class="text-[10px] text-[#7c818c]">Click ✏️ to edit any bet</span>
+            </div>
+            <button onclick="navigateTab('bets')" class="text-xs font-semibold text-[#00b386] hover:underline cursor-pointer">
+              View all (${u.bets.length}) →
+            </button>
+          </div>
+
+          <div class="divide-y divide-[#e8eaee] dark:divide-[#2a2e37]">
+            ${recentBets.length ? recentBets.map(renderBetRowHTML).join('') : `
+              <div class="py-10 text-center text-xs text-[#7c818c] space-y-2">
+                <div class="text-2xl">📋</div>
+                <p>No bets recorded yet.</p>
+                <button onclick="openAddBetSheet()" class="px-3 py-1.5 rounded-xl bg-[#00b386] text-white font-bold text-xs shadow-xs">Log First Bet</button>
+              </div>
+            `}
+          </div>
+        </div>
+
+      </div>
+
+      ${isAdminLoggedIn && communityStats ? `
+        <!-- ============================================== -->
+        <!-- NAVEEN MASTER ADMIN DESK: ALL BETTORS OVERVIEW -->
+        <!-- ============================================== -->
+        <div class="col-span-1 lg:col-span-12 space-y-5 pt-4">
+          
+          <!-- Master Admin Desk Banner & Aggregates -->
+          <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-6 sm:p-7 shadow-lg border border-slate-700/60">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold tracking-wider uppercase bg-[#00b386] text-white">
+                    ★ Master Admin Console
+                  </span>
+                  <span class="text-xs text-slate-300">Live MongoDB Atlas Database</span>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-black tracking-tight text-white">
+                  All Bettors &amp; Community Portfolio Overview
+                </h2>
+                <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
+                  As Admin, you have full control: view every bettor's live bankroll, net P&amp;L, ROI, inspect their bet slips, and add or delete profiles.
+                </p>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                <button onclick="showNetflixAddProfileModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] active:scale-95 text-white text-xs font-bold transition shadow-md cursor-pointer whitespace-nowrap">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                  <span>+ Add New Bettor</span>
+                </button>
+                <button onclick="loadEveryoneData(); showToast('Refreshed all bettor data from MongoDB', '🔄')" class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold transition cursor-pointer" title="Sync fresh data from MongoDB">
+                  <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  <span>Sync DB</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 4 Aggregate Metric Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-slate-700/60">
+              <div class="bg-slate-800/70 backdrop-blur-xs rounded-2xl p-4 border border-slate-700/50">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Total Community Bankroll</span>
+                <div class="text-xl sm:text-2xl font-black text-white mt-1">
+                  ${fmtRupee(communityStats.totalBankroll)}
+                </div>
+                <span class="text-[11px] text-slate-400 mt-0.5 block">combined across ${communityStats.bettorCount} bettor${communityStats.bettorCount === 1 ? '' : 's'}</span>
+              </div>
+
+              <div class="bg-slate-800/70 backdrop-blur-xs rounded-2xl p-4 border border-slate-700/50">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Combined Settled P&amp;L</span>
+                <div class="text-xl sm:text-2xl font-black mt-1 ${communityStats.totalSettledPL >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+                  ${fmtSignedRupee(communityStats.totalSettledPL)}
+                </div>
+                <span class="text-[11px] ${communityStats.roi >= 0 ? 'text-emerald-400' : 'text-rose-400'} mt-0.5 block font-semibold">
+                  ${communityStats.roi >= 0 ? '+' : ''}${communityStats.roi.toFixed(1)}% community ROI
+                </span>
+              </div>
+
+              <div class="bg-slate-800/70 backdrop-blur-xs rounded-2xl p-4 border border-slate-700/50">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Total Bets Logged</span>
+                <div class="text-xl sm:text-2xl font-black text-white mt-1">
+                  ${communityStats.totalBets} <span class="text-xs font-normal text-slate-400">bets</span>
+                </div>
+                <span class="text-[11px] text-slate-400 mt-0.5 block">${communityStats.winRate.toFixed(1)}% community win rate</span>
+              </div>
+
+              <div class="bg-slate-800/70 backdrop-blur-xs rounded-2xl p-4 border border-slate-700/50">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Registered Bettors</span>
+                <div class="text-xl sm:text-2xl font-black text-white mt-1">
+                  ${communityStats.bettorCount} <span class="text-xs font-normal text-slate-400">profiles</span>
+                </div>
+                <span class="text-[11px] text-emerald-400 mt-0.5 block font-semibold">All synchronized</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Bettor Roster Table & Management Card -->
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-3xl p-5 sm:p-6 shadow-sm overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-base font-bold text-[#1b1d21] dark:text-white">Bettor Roster &amp; Profile Controls</h3>
+                <p class="text-xs text-[#7c818c]">Tap "Inspect" to view or edit someone's trades, or use the red trash button to remove an account.</p>
+              </div>
+              <button onclick="showNetflixAddProfileModal()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#00b386] hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-xs font-bold transition border border-emerald-200/60 dark:border-emerald-800/40 cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                <span>Add Profile</span>
+              </button>
+            </div>
+
+            <!-- Table View -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-[#e8eaee] dark:border-[#2a2e37] text-[11px] font-bold uppercase tracking-wider text-[#7c818c]">
+                    <th class="py-3 px-3">Bettor</th>
+                    <th class="py-3 px-3 text-right">Starting Capital</th>
+                    <th class="py-3 px-3 text-right">Current Bankroll</th>
+                    <th class="py-3 px-3 text-right">Settled P&amp;L</th>
+                    <th class="py-3 px-3 text-right">ROI</th>
+                    <th class="py-3 px-3 text-right">Win Rate</th>
+                    <th class="py-3 px-3 text-center">Bets</th>
+                    <th class="py-3 px-3 text-right">Admin Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#e8eaee] dark:divide-[#2a2e37] text-xs">
+                  ${state.profiles.map(p => {
+                    const pPort = calculateUserPortfolio(p);
+                    const isMasterAdmin = p.role === 'admin' || (p.name && p.name.toLowerCase() === 'naveen');
+                    const isSelf = p.id === state.activeUserId;
+                    return `
+                      <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                        <!-- Bettor Name & Avatar -->
+                        <td class="py-3.5 px-3">
+                          <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-xs flex-shrink-0" style="background:${p.color}">
+                              ${p.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div class="flex items-center gap-1.5 font-bold text-[#1b1d21] dark:text-white">
+                                <span>${p.name}</span>
+                                ${isMasterAdmin ? '<span class="text-[9px] font-extrabold text-[#00b386] bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">★ Admin</span>' : ''}
+                                ${isSelf ? '<span class="text-[9px] font-semibold text-[#7c818c] bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">You</span>' : ''}
+                              </div>
+                              <span class="text-[10px] text-[#7c818c]">${p.bets.length} trades recorded</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Starting Capital -->
+                        <td class="py-3.5 px-3 text-right font-medium text-[#7c818c] dark:text-[#9aa0ac]">
+                          ${fmtRupee(p.startingBankroll)}
+                        </td>
+
+                        <!-- Current Bankroll -->
+                        <td class="py-3.5 px-3 text-right font-bold text-[#1b1d21] dark:text-white text-sm">
+                          ${fmtRupee(pPort.currentBankroll)}
+                        </td>
+
+                        <!-- Settled P&L -->
+                        <td class="py-3.5 px-3 text-right font-bold ${pPort.settledPL >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+                          ${fmtSignedRupee(pPort.settledPL)}
+                        </td>
+
+                        <!-- ROI -->
+                        <td class="py-3.5 px-3 text-right font-bold ${pPort.roi >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+                          ${pPort.roi >= 0 ? '+' : ''}${pPort.roi.toFixed(1)}%
+                        </td>
+
+                        <!-- Win Rate -->
+                        <td class="py-3.5 px-3 text-right">
+                          <span class="font-bold text-[#1b1d21] dark:text-white">${pPort.winRate.toFixed(1)}%</span>
+                          <span class="text-[10px] text-[#7c818c] block">${pPort.wins}W · ${pPort.losses}L</span>
+                        </td>
+
+                        <!-- Bets Count -->
+                        <td class="py-3.5 px-3 text-center">
+                          <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-[#1b1d21] dark:text-neutral-200">
+                            ${p.bets.length}
+                          </span>
+                        </td>
+
+                        <!-- Action Buttons -->
+                        <td class="py-3.5 px-3 text-right">
+                          <div class="flex items-center justify-end gap-1.5">
+                            <button onclick="viewUserAsAdmin('${p.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-[#00b386] hover:text-white dark:hover:bg-[#00b386] dark:hover:text-white text-[#1b1d21] dark:text-neutral-200 font-bold text-xs transition cursor-pointer flex items-center gap-1" title="Inspect ${p.name}'s trades and portfolio">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                              <span>Inspect</span>
+                            </button>
+
+                            ${isMasterAdmin ? `
+                              <button disabled class="p-1.5 rounded-lg text-slate-300 dark:text-slate-600 cursor-not-allowed" title="Master Admin account cannot be deleted">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                              </button>
+                            ` : `
+                              <button onclick="deleteUserProfile('${p.id}', '${p.name}')" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition cursor-pointer" title="Delete ${p.name} from MongoDB database">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              </button>
+                            `}
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+    </div>
+  `;
+}
+
+// Chart.js Area Growth Chart Renderer
+function setChartRange(range) {
+  state.chartRange = range;
+  saveState();
+  renderApp();
+}
+
+function renderGrowthChart() {
+  const canvas = document.getElementById('growthChartCanvas');
+  if (!canvas) return;
+
+  const u = getActiveProfile();
+  const port = calculateUserPortfolio(u);
+  let pts = port.equityCurvePoints;
+
+  // Filter based on range
+  const now = new Date();
+  let daysToFilter = 0;
+  if (state.chartRange === '1W') daysToFilter = 7;
+  else if (state.chartRange === '1M') daysToFilter = 30;
+  else if (state.chartRange === '3M') daysToFilter = 90;
+
+  if (daysToFilter > 0) {
+    const cutOff = new Date(now);
+    cutOff.setDate(now.getDate() - daysToFilter);
+    const cutOffStr = cutOff.toISOString().split('T')[0];
+    const filtered = pts.filter(p => p.date >= cutOffStr);
+    if (filtered.length >= 2) pts = filtered;
+  }
+
+  if (pts.length < 2) {
+    // Single point fallback
+    pts = [{ date: 'Start', val: u.startingBankroll }, { date: 'Today', val: port.currentBankroll }];
+  }
+
+  const isDark = document.documentElement.classList.contains('dark');
+  const isNetProfit = port.settledPL >= 0;
+  const primaryColor = isNetProfit ? '#00b386' : '#eb5b3c';
+  const fillColor = isNetProfit ? 'rgba(0, 179, 134, 0.12)' : 'rgba(235, 91, 60, 0.12)';
+
+  if (currentChartInstance) {
+    currentChartInstance.destroy();
+  }
+
+  const ctx = canvas.getContext('2d');
+  currentChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: pts.map(p => p.date),
+      datasets: [{
+        label: 'Bankroll',
+        data: pts.map(p => p.val),
+        borderColor: primaryColor,
+        borderWidth: 2.5,
+        backgroundColor: fillColor,
+        fill: true,
+        tension: 0.35,
+        pointRadius: pts.length > 25 ? 0 : 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: primaryColor,
+        pointBorderColor: isDark ? '#181b22' : '#ffffff',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isDark ? '#232733' : '#1b1d21',
+          titleColor: '#ffffff',
+          bodyColor: '#ffffff',
+          titleFont: { family: 'Inter', size: 11, weight: '600' },
+          bodyFont: { family: 'Inter', size: 12, weight: '700' },
+          padding: 8,
+          cornerRadius: 10,
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => `Bankroll: ${fmtRupee(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: false,
+          grid: { display: false }
+        },
+        y: {
+          display: true,
+          position: 'right',
+          grid: {
+            color: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.04)'
+          },
+          ticks: {
+            color: isDark ? '#6b7280' : '#9ca3af',
+            font: { family: 'Inter', size: 10 },
+            callback: (v) => '₹' + Math.round(v / 1000) + 'k'
+          }
+        }
+      },
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      }
+    }
+  });
+}
+
+// ----------------------------------------------------
+// SCREEN 2: BETS LIST & FILTER
+// ----------------------------------------------------
+function renderBetsScreen() {
+  const u = getActiveProfile();
+  const filterOptions = ['All', 'Won', 'Lost', 'Pending', 'Void'];
+
+  let filtered = [...u.bets];
+  if (state.betFilter !== 'All') {
+    filtered = filtered.filter(b => b.result === state.betFilter);
+  }
+  if (state.betSearch && state.betSearch.trim()) {
+    const q = state.betSearch.toLowerCase().trim();
+    filtered = filtered.filter(b => 
+      b.event.toLowerCase().includes(q) || 
+      b.sport.toLowerCase().includes(q) || 
+      (b.tags && b.tags.toLowerCase().includes(q))
+    );
+  }
+  // Sort descending by date
+  filtered.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  const totalFilteredStaked = filtered.reduce((acc, b) => acc + b.stake, 0);
+  const totalFilteredPL = filtered.filter(isBetSettled).reduce((acc, b) => acc + calcBetPL(b), 0);
+
+  return `
+    <div class="space-y-4">
+      <!-- Title Bar with Search & Action -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-[#1b1d21] dark:text-white">Bet Ledger</h1>
+          <p class="text-xs text-[#7c818c]">Comprehensive trade journal with realtime profitability tracking</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Desktop Search Input -->
+          <div class="relative w-full sm:w-64">
+            <input type="text" placeholder="Search event, sport or tag..." value="${state.betSearch || ''}" oninput="state.betSearch = this.value; renderApp();" class="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] text-xs text-[#1b1d21] dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#00b386]">
+            <svg class="w-3.5 h-3.5 text-[#7c818c] absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            ${state.betSearch ? `<button onclick="state.betSearch = ''; renderApp();" class="absolute right-2.5 top-2 text-xs text-[#7c818c] hover:text-[#1b1d21]">✕</button>` : ''}
+          </div>
+          <button onclick="openAddBetSheet()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white text-xs font-bold transition shadow-sm whitespace-nowrap cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>Log Bet</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Ledger Metrics Bar -->
+      <div class="grid grid-cols-3 gap-3 bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-3 sm:p-4 text-xs">
+        <div>
+          <span class="text-[#7c818c] font-medium block text-[11px]">Filtered Bets</span>
+          <span class="font-bold text-[#1b1d21] dark:text-white text-sm">${filtered.length} trades</span>
+        </div>
+        <div>
+          <span class="text-[#7c818c] font-medium block text-[11px]">Capital Staked</span>
+          <span class="font-bold text-[#1b1d21] dark:text-white text-sm">${fmtRupee(totalFilteredStaked)}</span>
+        </div>
+        <div>
+          <span class="text-[#7c818c] font-medium block text-[11px]">Settled Net P&amp;L</span>
+          <span class="font-bold text-sm ${totalFilteredPL >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">${fmtSignedRupee(totalFilteredPL)}</span>
+        </div>
+      </div>
+
+      <!-- Filter Chips -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        ${filterOptions.map(f => `
+          <button onclick="setBetFilter('${f}')" class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${state.betFilter === f ? 'bg-[#00b386] text-white shadow-sm' : 'bg-white dark:bg-[#181b22] text-[#7c818c] border border-[#e8eaee] dark:border-[#2a2e37] hover:border-[#00b386]'}">
+            ${f}
+          </button>
+        `).join('')}
+      </div>
+
+      <!-- Bets Table / Ledger Container (Expanded on Desktop) -->
+      <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl px-4 sm:px-6 py-2 shadow-sm divide-y divide-[#e8eaee] dark:divide-[#2a2e37]">
+        ${filtered.length ? filtered.map(renderBetRowHTML).join('') : `
+          <div class="py-14 text-center text-xs text-[#7c818c] space-y-3">
+            <div class="w-12 h-12 mx-auto rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#00b386] text-xl font-bold">
+              ✏️
+            </div>
+            <div class="font-bold text-[#1b1d21] dark:text-white text-sm">No matching bets found</div>
+            <p class="max-w-xs mx-auto text-[#7c818c]">Adjust filters or click "Log Bet" to record your trades.</p>
+            <button onclick="openAddBetSheet()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white font-bold text-xs shadow-md transition cursor-pointer">
+              <span>+ Log First Bet</span>
+            </button>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function setBetFilter(f) {
+  state.betFilter = f;
+  renderApp();
+}
+
+function renderBetRowHTML(bet) {
+  const pl = calcBetPL(bet);
+  
+  // Badge styling
+  let badgeClass = 'bg-slate-100 text-[#7c818c] dark:bg-slate-800 dark:text-slate-300';
+  if (bet.result === 'Won') badgeClass = 'bg-emerald-50 text-[#00b386] dark:bg-emerald-950/50 border border-emerald-200/50 dark:border-emerald-800/40';
+  else if (bet.result === 'Lost') badgeClass = 'bg-red-50 text-[#eb5b3c] dark:bg-red-950/50 border border-red-200/50 dark:border-red-800/40';
+  else if (bet.result === 'Pending') badgeClass = 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 border border-amber-200/50 dark:border-amber-800/40 badge-live';
+  else if (bet.result === 'Cashed Out') badgeClass = 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 border border-purple-200/50';
+
+  // Result P&L display
+  let plDisplay = '–';
+  let plColorClass = 'text-[#7c818c]';
+  if (bet.result === 'Won') {
+    plDisplay = fmtSignedRupee(pl);
+    plColorClass = 'text-[#00b386]';
+  } else if (bet.result === 'Lost') {
+    plDisplay = fmtSignedRupee(pl);
+    plColorClass = 'text-[#eb5b3c]';
+  } else if (bet.result === 'Cashed Out') {
+    plDisplay = fmtSignedRupee(pl);
+    plColorClass = pl >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]';
+  } else if (bet.result === 'Void') {
+    plDisplay = '₹0 (Void)';
+    plColorClass = 'text-[#7c818c]';
+  } else if (bet.result === 'Pending') {
+    plDisplay = 'Pending';
+    plColorClass = 'text-amber-600 dark:text-amber-400 font-semibold';
+  }
+
+  return `
+    <div onclick="openEditBetSheet('${bet.id}')" class="py-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-50/70 dark:hover:bg-slate-800/30 -mx-2 px-2 sm:px-3 rounded-xl transition group">
+      <!-- Left Details (Expanded on Desktop) -->
+      <div class="space-y-1 min-w-0 pr-3 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs sm:text-sm font-bold text-[#1b1d21] dark:text-white group-hover:text-[#00b386] transition-colors">
+            ${bet.event}
+          </span>
+          ${bet.type !== 'Single' ? `<span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-100 dark:bg-slate-800 text-[#7c818c] border border-slate-200 dark:border-slate-700">${bet.type}</span>` : ''}
+          ${bet.tags ? `<span class="hidden sm:inline-block text-[10px] text-[#7c818c] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">${bet.tags}</span>` : ''}
+        </div>
+        <div class="text-[11px] sm:text-xs text-[#7c818c] dark:text-[#9aa0ac] flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px]">${bet.sport}</span>
+          <span>•</span>
+          <span class="font-semibold text-slate-800 dark:text-slate-200">@${bet.odds} odds</span>
+          <span>•</span>
+          <span>Stake ${fmtRupee(bet.stake)}</span>
+          <span>•</span>
+          <span>${bet.date}</span>
+        </div>
+      </div>
+
+      <!-- Right P&L, Result Badge & Edit Pencil Button -->
+      <div class="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
+        <div class="text-right flex flex-col items-end">
+          <div class="text-xs sm:text-sm font-bold ${plColorClass}">
+            ${plDisplay}
+          </div>
+          <span class="mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}">
+            ${bet.result}
+          </span>
+        </div>
+
+        <!-- Dedicated Pencil Edit Button (As Requested by User) -->
+        <button onclick="event.stopPropagation(); openEditBetSheet('${bet.id}')" class="p-2 rounded-xl bg-slate-100/90 dark:bg-slate-800 hover:bg-[#00b386] hover:text-white dark:hover:bg-[#00b386] dark:hover:text-white text-[#7c818c] border border-[#e8eaee] dark:border-[#2a2e37] hover:border-emerald-400 transition shadow-xs cursor-pointer" title="Click pencil to edit this bet">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ----------------------------------------------------
+// SCREEN 3: ADD / EDIT BET BOTTOM SHEET
+// ----------------------------------------------------
+function openAddBetSheet() {
+  const lastSport = state.lastSelectedSport || 'Cricket';
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const html = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-[#1b1d21] dark:text-white">Log Bet</h2>
+          <p class="text-xs text-[#7c818c]">Takes under 15 seconds</p>
+        </div>
+        <button onclick="closeSheet()" class="p-1 rounded-full text-[#7c818c] hover:bg-slate-100 dark:hover:bg-slate-800">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <!-- Event Name -->
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Match or Event</label>
+          <input id="betEventInput" type="text" placeholder="e.g. India vs Australia 2nd ODI" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386] transition">
+        </div>
+
+        <!-- Sport Picker Pills (Remembers last sport) -->
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Sport</label>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${['Cricket', 'Football', 'Tennis', 'Basketball', 'Kabaddi', 'Other'].map(s => `
+              <button type="button" onclick="selectSportInForm('${s}')" class="sport-pill px-3 py-1.5 rounded-full text-xs font-semibold transition ${s === lastSport ? 'bg-[#00b386] text-white' : 'bg-slate-100 dark:bg-slate-800 text-[#7c818c] hover:border-[#00b386]'}" data-sport="${s}">
+                ${s}
+              </button>
+            `).join('')}
+          </div>
+          <input id="betSportValue" type="hidden" value="${lastSport}">
+        </div>
+
+        <!-- Bet Type & Result -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Bet Type</label>
+            <select id="betTypeSelect" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-semibold text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+              <option value="Single">Single</option>
+              <option value="Accumulator">Accumulator</option>
+              <option value="Live">Live</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Result</label>
+            <select id="betResultSelect" onchange="onBetResultChange(this.value)" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-semibold text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+              <option value="Pending" selected>Pending</option>
+              <option value="Won">Won</option>
+              <option value="Lost">Lost</option>
+              <option value="Void">Void</option>
+              <option value="Cashed Out">Cashed Out</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Odds & Stake -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Decimal Odds</label>
+            <input id="betOddsInput" oninput="calculateLiveReturn()" type="number" step="0.01" placeholder="e.g. 1.85" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Stake (₹)</label>
+            <input id="betStakeInput" oninput="calculateLiveReturn()" type="number" step="100" placeholder="e.g. 1000" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+          </div>
+        </div>
+
+        <!-- Live Potential Return Calculation Banner -->
+        <div id="liveReturnBanner" class="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-between text-xs">
+          <span class="text-[#7c818c] dark:text-[#9aa0ac]">Potential Return</span>
+          <span id="liveReturnText" class="font-bold text-[#00b386]">Type odds &amp; stake</span>
+        </div>
+
+        <!-- Amount Received Field (Appears only for Cashed Out) -->
+        <div id="cashedOutAmountWrapper" class="hidden">
+          <label class="block text-xs font-semibold text-purple-700 dark:text-purple-400 mb-1">Amount Received on Cash Out (₹)</label>
+          <input id="betRetInput" type="number" step="50" placeholder="e.g. 1400" class="w-full px-3.5 py-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-purple-500">
+        </div>
+
+        <!-- Date & Tags -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Date</label>
+            <input id="betDateInput" type="date" value="${todayStr}" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-medium text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Tags (optional)</label>
+            <input id="betTagsInput" type="text" placeholder="e.g. IPL, High value" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+          </div>
+        </div>
+
+        <div id="betFormError" class="hidden text-xs text-[#eb5b3c] bg-red-50 dark:bg-red-950/40 p-2.5 rounded-xl border border-red-200 dark:border-red-800"></div>
+
+        <button onclick="submitBetForm(null)" class="w-full py-3.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] active:scale-[0.99] text-white font-bold text-sm tracking-wide transition shadow-lg shadow-[#00b386]/20">
+          Save Bet
+        </button>
+      </div>
+    </div>
+  `;
+
+  openSheet(html);
+}
+
+function openEditBetSheet(betId) {
+  const u = getActiveProfile();
+  const bet = u.bets.find(b => b.id === betId);
+  if (!bet) return;
+
+  const html = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-[#1b1d21] dark:text-white">Edit Bet</h2>
+          <p class="text-xs text-[#7c818c]">Update result or details</p>
+        </div>
+        <button onclick="closeSheet()" class="p-1 rounded-full text-[#7c818c] hover:bg-slate-100 dark:hover:bg-slate-800">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <!-- Event Name -->
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Match or Event</label>
+          <input id="betEventInput" type="text" value="${bet.event}" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+        </div>
+
+        <!-- Sport Picker Pills -->
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Sport</label>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${['Cricket', 'Football', 'Tennis', 'Basketball', 'Kabaddi', 'Other'].map(s => `
+              <button type="button" onclick="selectSportInForm('${s}')" class="sport-pill px-3 py-1.5 rounded-full text-xs font-semibold transition ${s === bet.sport ? 'bg-[#00b386] text-white' : 'bg-slate-100 dark:bg-slate-800 text-[#7c818c]'}" data-sport="${s}">
+                ${s}
+              </button>
+            `).join('')}
+          </div>
+          <input id="betSportValue" type="hidden" value="${bet.sport}">
+        </div>
+
+        <!-- Bet Type & Result -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Bet Type</label>
+            <select id="betTypeSelect" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-semibold text-[#1b1d21] dark:text-white">
+              <option value="Single" ${bet.type === 'Single' ? 'selected' : ''}>Single</option>
+              <option value="Accumulator" ${bet.type === 'Accumulator' ? 'selected' : ''}>Accumulator</option>
+              <option value="Live" ${bet.type === 'Live' ? 'selected' : ''}>Live</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Result</label>
+            <select id="betResultSelect" onchange="onBetResultChange(this.value)" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-semibold text-[#1b1d21] dark:text-white">
+              <option value="Pending" ${bet.result === 'Pending' ? 'selected' : ''}>Pending</option>
+              <option value="Won" ${bet.result === 'Won' ? 'selected' : ''}>Won</option>
+              <option value="Lost" ${bet.result === 'Lost' ? 'selected' : ''}>Lost</option>
+              <option value="Void" ${bet.result === 'Void' ? 'selected' : ''}>Void</option>
+              <option value="Cashed Out" ${bet.result === 'Cashed Out' ? 'selected' : ''}>Cashed Out</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Odds & Stake -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Decimal Odds</label>
+            <input id="betOddsInput" oninput="calculateLiveReturn()" type="number" step="0.01" value="${bet.odds}" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Stake (₹)</label>
+            <input id="betStakeInput" oninput="calculateLiveReturn()" type="number" step="100" value="${bet.stake}" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white">
+          </div>
+        </div>
+
+        <!-- Live Potential Return Banner -->
+        <div id="liveReturnBanner" class="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-between text-xs">
+          <span class="text-[#7c818c] dark:text-[#9aa0ac]">Potential Return</span>
+          <span id="liveReturnText" class="font-bold text-[#00b386]">
+            +${fmtRupee(bet.stake * (bet.odds - 1))} (Total: ${fmtRupee(bet.stake * bet.odds)})
+          </span>
+        </div>
+
+        <!-- Amount Received Field -->
+        <div id="cashedOutAmountWrapper" class="${bet.result === 'Cashed Out' ? 'block' : 'hidden'}">
+          <label class="block text-xs font-semibold text-purple-700 dark:text-purple-400 mb-1">Amount Received on Cash Out (₹)</label>
+          <input id="betRetInput" type="number" step="50" value="${bet.ret || ''}" class="w-full px-3.5 py-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 text-sm text-[#1b1d21] dark:text-white">
+        </div>
+
+        <!-- Date & Tags -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Date</label>
+            <input id="betDateInput" type="date" value="${bet.date}" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-medium text-[#1b1d21] dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#7c818c] mb-1">Tags</label>
+            <input id="betTagsInput" type="text" value="${bet.tags || ''}" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs text-[#1b1d21] dark:text-white">
+          </div>
+        </div>
+
+        <div id="betFormError" class="hidden text-xs text-[#eb5b3c] bg-red-50 dark:bg-red-950/40 p-2.5 rounded-xl border border-red-200 dark:border-red-800"></div>
+
+        <div class="pt-1 space-y-2">
+          <button onclick="submitBetForm('${bet.id}')" class="w-full py-3.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] active:scale-[0.99] text-white font-bold text-sm tracking-wide transition shadow-lg shadow-[#00b386]/20">
+            Save Changes
+          </button>
+          <button onclick="deleteBet('${bet.id}')" class="w-full py-2.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-[#eb5b3c] font-semibold text-xs border border-red-200/50 dark:border-red-800/40 transition">
+            Delete Bet
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  openSheet(html);
+}
+
+function selectSportInForm(sport) {
+  document.getElementById('betSportValue').value = sport;
+  state.lastSelectedSport = sport;
+  document.querySelectorAll('.sport-pill').forEach(pill => {
+    if (pill.getAttribute('data-sport') === sport) {
+      pill.classList.add('bg-[#00b386]', 'text-white');
+      pill.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-[#7c818c]');
+    } else {
+      pill.classList.remove('bg-[#00b386]', 'text-white');
+      pill.classList.add('bg-slate-100', 'dark:bg-slate-800', 'text-[#7c818c]');
+    }
+  });
+}
+
+function onBetResultChange(val) {
+  const cashedOutWrapper = document.getElementById('cashedOutAmountWrapper');
+  if (cashedOutWrapper) {
+    if (val === 'Cashed Out') {
+      cashedOutWrapper.classList.remove('hidden');
+    } else {
+      cashedOutWrapper.classList.add('hidden');
+    }
+  }
+}
+
+function calculateLiveReturn() {
+  const odds = parseFloat(document.getElementById('betOddsInput')?.value);
+  const stake = parseFloat(document.getElementById('betStakeInput')?.value);
+  const textEl = document.getElementById('liveReturnText');
+  if (!textEl) return;
+
+  if (odds > 1 && stake > 0) {
+    const profit = stake * (odds - 1);
+    const totalReturn = stake * odds;
+    textEl.textContent = `+${fmtRupee(profit)} (Payout: ${fmtRupee(totalReturn)})`;
+  } else {
+    textEl.textContent = 'Enter odds & stake';
+  }
+}
+
+async function submitBetForm(betId) {
+  const event = document.getElementById('betEventInput')?.value.trim();
+  const sport = document.getElementById('betSportValue')?.value || 'Cricket';
+  const type = document.getElementById('betTypeSelect')?.value || 'Single';
+  const odds = parseFloat(document.getElementById('betOddsInput')?.value);
+  const stake = parseFloat(document.getElementById('betStakeInput')?.value);
+  const result = document.getElementById('betResultSelect')?.value || 'Pending';
+  const ret = parseFloat(document.getElementById('betRetInput')?.value) || 0;
+  const date = document.getElementById('betDateInput')?.value || new Date().toISOString().split('T')[0];
+  const tags = document.getElementById('betTagsInput')?.value.trim() || '';
+  const errEl = document.getElementById('betFormError');
+
+  if (!event) {
+    showFormError(errEl, 'Enter an event or match name.');
+    return;
+  }
+  if (!odds || odds <= 1.0) {
+    showFormError(errEl, 'Enter decimal odds greater than 1.00 (e.g. 1.85).');
+    return;
+  }
+  if (!stake || stake <= 0) {
+    showFormError(errEl, 'Enter a valid stake amount.');
+    return;
+  }
+  if (result === 'Cashed Out' && ret < 0) {
+    showFormError(errEl, 'Enter the amount received on cash out.');
+    return;
+  }
+
+  const payload = { event, sport, type, odds, stake, result, ret, date, tags };
+
+  if (isApiMode) {
+    try {
+      const targetUserId = state.impersonatingUserId || state.activeUserId;
+      let res;
+      if (betId) {
+        res = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'updateBet', id: betId, bet: payload, user: targetUserId })
+        });
+      } else {
+        res = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'addBet', bet: payload, user: targetUserId })
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json();
+        showFormError(errEl, errData.error || 'Failed to save bet to database.');
+        return;
+      }
+
+      const updatedUser = await res.json();
+      applyUserData(updatedUser);
+      closeSheet();
+      showToast(betId ? 'Bet updated in database' : 'New bet logged to database');
+      renderApp();
+      return;
+    } catch (e) {
+      showFormError(errEl, 'Network error saving bet to database.');
+      return;
+    }
+  }
+
+  // Local fallback
+  const u = getActiveProfile();
+
+  if (betId) {
+    // Update existing
+    const idx = u.bets.findIndex(b => b.id === betId);
+    if (idx !== -1) {
+      u.bets[idx] = { ...u.bets[idx], event, sport, type, odds, stake, result, ret, date, tags };
+      showToast('Bet updated successfully');
+    }
+  } else {
+    // Create new
+    const newBet = {
+      id: 'b_' + Date.now(),
+      event,
+      sport,
+      type,
+      odds,
+      stake,
+      result,
+      ret,
+      date,
+      tags
+    };
+    u.bets.unshift(newBet);
+    showToast('New bet logged in portfolio');
+  }
+
+  saveState();
+  closeSheet();
+  renderApp();
+}
+
+async function deleteBet(betId) {
+  if (confirm('Delete this bet record? This cannot be undone.')) {
+    if (isApiMode) {
+      try {
+        const targetUserId = state.impersonatingUserId || state.activeUserId;
+        const res = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'deleteBet', id: betId, user: targetUserId })
+        });
+        if (res.ok) {
+          const updatedUser = await res.json();
+          applyUserData(updatedUser);
+          closeSheet();
+          showToast('Bet deleted from database');
+          renderApp();
+          return;
+        }
+      } catch (e) {
+        console.error('Delete bet error:', e);
+      }
+    }
+
+    const u = getActiveProfile();
+    u.bets = u.bets.filter(b => b.id !== betId);
+    saveState();
+    closeSheet();
+    showToast('Bet record deleted');
+    renderApp();
+  }
+}
+
+function showFormError(el, msg) {
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// ----------------------------------------------------
+// SCREEN 4: ANALYTICS
+// ----------------------------------------------------
+function renderAnalyticsScreen() {
+  const u = getActiveProfile();
+  const port = calculateUserPortfolio(u);
+
+  // P&L By Sport Horizontal Bars
+  const sportMap = {};
+  u.bets.filter(isBetSettled).forEach(b => {
+    sportMap[b.sport] = (sportMap[b.sport] || 0) + calcBetPL(b);
+  });
+  const sportEntries = Object.entries(sportMap).sort((a, b) => b[1] - a[1]);
+  const maxSportAbsPL = Math.max(...sportEntries.map(e => Math.abs(e[1])), 100);
+
+  // 5-Week Calendar Heatmap (35 days)
+  const today = new Date();
+  const dailyPLMap = {};
+  u.bets.filter(isBetSettled).forEach(b => {
+    dailyPLMap[b.date] = (dailyPLMap[b.date] || 0) + calcBetPL(b);
+  });
+
+  const heatmapDays = [];
+  for (let i = 34; i >= 0; i--) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - i);
+    const dayStr = day.toISOString().split('T')[0];
+    const val = dailyPLMap[dayStr];
+    heatmapDays.push({ date: dayStr, pl: val });
+  }
+
+  return `
+    <div class="space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-[#1b1d21] dark:text-white">Performance Analytics</h1>
+          <p class="text-xs text-[#7c818c]">Quantitative metrics across settled trades</p>
+        </div>
+      </div>
+
+      <!-- 6 Metrics Cards Grid (Spacious 6-column on desktop) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        <!-- Win Rate & W/L -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+          <span class="text-xs text-[#7c818c] font-medium block">Win Rate</span>
+          <div class="text-xl font-bold mt-1 text-[#1b1d21] dark:text-white">
+            ${port.winRate.toFixed(1)}%
+          </div>
+          <span class="text-[11px] text-[#7c818c] block mt-0.5">${port.wins} Won · ${port.losses} Lost</span>
+        </div>
+
+        <!-- ROI & Total Staked -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+          <span class="text-xs text-[#7c818c] font-medium block">ROI</span>
+          <div class="text-xl font-bold mt-1 ${port.roi >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+            ${port.roi >= 0 ? '+' : ''}${port.roi.toFixed(1)}%
+          </div>
+          <span class="text-[11px] text-[#7c818c] block mt-0.5">${fmtRupee(port.totalSettledStaked)} staked</span>
+        </div>
+
+        <!-- Current Streak -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+          <span class="text-xs text-[#7c818c] font-medium block">Current Streak</span>
+          <div class="text-xl font-bold mt-1 ${port.currentStreak >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+            ${port.currentStreak > 0 ? `🔥 ${port.currentStreak} Wins` : port.currentStreak < 0 ? `❄️ ${Math.abs(port.currentStreak)} Losses` : 'Even'}
+          </div>
+          <span class="text-[11px] text-[#7c818c] block mt-0.5">consecutive bets</span>
+        </div>
+
+        <!-- Max Drawdown -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+          <span class="text-xs text-[#7c818c] font-medium block">Max Drawdown</span>
+          <div class="text-xl font-bold mt-1 text-[#eb5b3c]">
+            ${fmtRupee(port.maxDrawdownAmt)}
+          </div>
+          <span class="text-[11px] text-[#7c818c] block mt-0.5">-${port.maxDrawdownPct.toFixed(1)}% from peak</span>
+        </div>
+
+        <!-- Longest Win Streak -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+          <span class="text-xs text-[#7c818c] font-medium block">Longest Win Streak</span>
+          <div class="text-xl font-bold mt-1 text-[#00b386]">
+            ${port.maxWinStreak}
+          </div>
+          <span class="text-[11px] text-[#7c818c] block mt-0.5">consecutive wins</span>
+        </div>
+
+        <!-- Longest Loss Streak -->
+        <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-4 shadow-sm">
+          <span class="text-xs text-[#7c818c] font-medium block">Longest Loss Streak</span>
+          <div class="text-xl font-bold mt-1 text-[#eb5b3c]">
+            ${port.maxLossStreak}
+          </div>
+          <span class="text-[11px] text-[#7c818c] block mt-0.5">consecutive losses</span>
+        </div>
+      </div>
+
+      <!-- 2-Column Desktop Grid for Heatmap, Sport Bars & Highlights -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left: P&L by Sport & Highlights (6 cols on lg) -->
+        <div class="lg:col-span-6 space-y-6">
+          <!-- P&L by Sport Horizontal Bars -->
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-5 shadow-sm space-y-4">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[#7c818c]">P&amp;L by Sport</h2>
+            <div class="space-y-3.5">
+              ${sportEntries.length ? sportEntries.map(([sport, pnlVal]) => {
+                const isPos = pnlVal >= 0;
+                const barWidth = Math.max(5, Math.min(100, Math.round((Math.abs(pnlVal) / maxSportAbsPL) * 100)));
+                return `
+                  <div>
+                    <div class="flex items-center justify-between text-xs mb-1.5">
+                      <span class="font-semibold text-[#1b1d21] dark:text-white">${sport}</span>
+                      <span class="font-bold ${isPos ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">${fmtSignedRupee(pnlVal)}</span>
+                    </div>
+                    <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div class="h-full rounded-full ${isPos ? 'bg-[#00b386]' : 'bg-[#eb5b3c]'}" style="width: ${barWidth}%"></div>
+                    </div>
+                  </div>
+                `;
+              }).join('') : `
+                <div class="py-6 text-center text-xs text-[#7c818c]">No settled bets to display.</div>
+              `}
+            </div>
+          </div>
+
+          <!-- Best & Worst Bet Highlight Cards -->
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-5 shadow-sm space-y-4">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[#7c818c]">Trade Highlights</h2>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <!-- Best Bet -->
+              <div class="p-3.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 space-y-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-[#00b386]">★ Best Trade</span>
+                ${port.bestBet ? `
+                  <div class="text-xs font-bold text-[#1b1d21] dark:text-white truncate">${port.bestBet.event}</div>
+                  <div class="text-[11px] text-[#7c818c]">${port.bestBet.sport} · @${port.bestBet.odds} · ${port.bestBet.date}</div>
+                  <div class="text-base font-extrabold text-[#00b386]">${fmtSignedRupee(calcBetPL(port.bestBet))}</div>
+                ` : '<div class="text-xs text-[#7c818c]">No bets yet</div>'}
+              </div>
+
+              <!-- Worst Bet -->
+              <div class="p-3.5 rounded-xl bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40 space-y-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-[#eb5b3c]">Worst Trade</span>
+                ${port.worstBet && calcBetPL(port.worstBet) < 0 ? `
+                  <div class="text-xs font-bold text-[#1b1d21] dark:text-white truncate">${port.worstBet.event}</div>
+                  <div class="text-[11px] text-[#7c818c]">${port.worstBet.sport} · @${port.worstBet.odds} · ${port.worstBet.date}</div>
+                  <div class="text-base font-extrabold text-[#eb5b3c]">${fmtSignedRupee(calcBetPL(port.worstBet))}</div>
+                ` : '<div class="text-xs text-[#7c818c]">No losing bets</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: 5-Week Activity Heatmap (6 cols on lg) -->
+        <div class="lg:col-span-6 space-y-6">
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-5 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-xs font-bold uppercase tracking-wider text-[#7c818c]">5-Week Activity Calendar</h2>
+                <span class="text-[11px] text-[#7c818c]">Hover over any day to see net daily P&amp;L</span>
+              </div>
+              <span class="text-[11px] font-semibold text-[#00b386] bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">35 Days</span>
+            </div>
+
+            <!-- 7-Column Grid (Mon-Sun) with desktop hover effects -->
+            <div class="grid grid-cols-7 gap-2">
+              ${heatmapDays.map(d => {
+                let bg = 'bg-slate-100 dark:bg-slate-800/80';
+                let titleText = `${d.date}: No settled bets`;
+                if (d.pl !== undefined && d.pl > 0) {
+                  bg = 'bg-[#00b386]';
+                  titleText = `${d.date}: +${fmtRupee(d.pl)} Profit`;
+                } else if (d.pl !== undefined && d.pl < 0) {
+                  bg = 'bg-[#eb5b3c]';
+                  titleText = `${d.date}: -${fmtRupee(Math.abs(d.pl))} Loss`;
+                } else if (d.pl === 0) {
+                  bg = 'bg-slate-300 dark:bg-slate-700';
+                  titleText = `${d.date}: Even / Void`;
+                }
+
+                return `
+                  <div title="${titleText}" class="aspect-square rounded-xl ${bg} transition transform hover:scale-110 hover:ring-2 hover:ring-[#00b386] cursor-pointer flex items-center justify-center text-[10px] font-bold text-white shadow-2xs">
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            
+            <div class="flex items-center justify-between text-xs text-[#7c818c] pt-2 border-t border-[#e8eaee] dark:border-[#2a2e37]">
+              <div class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded bg-[#00b386] inline-block"></span>
+                <span>Profit Day</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded bg-[#eb5b3c] inline-block"></span>
+                <span>Loss Day</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 inline-block"></span>
+                <span>No Trades</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ----------------------------------------------------
+// SCREEN 5: EVERYONE (ADMIN ONLY SCREEN)
+// ----------------------------------------------------
+function renderEveryoneScreen() {
+  if (!isLoggedAsAdmin()) {
+    return `
+      <div class="py-16 text-center space-y-3">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl">🔒</div>
+        <div class="text-sm font-bold text-[#1b1d21] dark:text-white">Admin Privileges Required</div>
+        <p class="text-xs text-[#7c818c] max-w-sm mx-auto">Only the master admin (Naveen) has access to manage and view all bettor portfolios.</p>
+        <div class="pt-2">
+          <button onclick="showNetflixAddProfileModal()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white text-xs font-bold transition shadow-sm cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>+ Add or Switch Profile</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-[#1b1d21] dark:text-white">Everyone</h1>
+          <p class="text-xs text-[#7c818c]">Admin user portfolio management. Tap any bettor's card to view or manage their records.</p>
+        </div>
+        <button onclick="showNetflixAddProfileModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>+ Add Bettor Profile</span>
+        </button>
+      </div>
+
+      ${state.profiles.length === 0 ? `
+        <div class="py-14 text-center bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-6 space-y-3 shadow-sm">
+          <div class="w-12 h-12 mx-auto rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#00b386] text-xl font-bold">👤</div>
+          <div class="font-bold text-[#1b1d21] dark:text-white text-sm">No Bettor Profiles in Database Yet</div>
+          <p class="text-xs text-[#7c818c] max-w-xs mx-auto">Click below to create your master admin profile or add friends.</p>
+          <button onclick="showNetflixAddProfileModal()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white font-bold text-xs shadow-md transition cursor-pointer">
+            + Create Profile
+          </button>
+        </div>
+      ` : `
+        <!-- Multi-Column Desktop Grid for Bettor Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          ${state.profiles.map(p => {
+            const port = calculateUserPortfolio(p);
+            const isCurrentUser = p.id === state.activeUserId;
+            return `
+              <div onclick="viewUserAsAdmin('${p.id}')" class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] hover:border-[#00b386] dark:hover:border-[#00b386] rounded-2xl p-5 shadow-sm cursor-pointer transition group flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                  <!-- Left: Avatar & Info -->
+                  <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg font-black shadow-sm" style="background:${p.color}">
+                      ${p.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-base font-bold text-[#1b1d21] dark:text-white group-hover:text-[#00b386] transition-colors">${p.name}</span>
+                        ${p.role === 'admin' ? '<span class="text-[10px] font-bold text-[#00b386] bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded">★ Admin</span>' : ''}
+                        ${isCurrentUser ? '<span class="text-[9px] font-semibold text-[#7c818c] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">You</span>' : ''}
+                      </div>
+                      <div class="text-xs text-[#7c818c] mt-0.5">
+                        ${p.bets.length} bets logged
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Right: Bankroll -->
+                  <div class="text-right">
+                    <div class="text-base font-bold text-[#1b1d21] dark:text-white">
+                      ${fmtRupee(port.currentBankroll)}
+                    </div>
+                    <div class="text-xs font-semibold ${port.settledPL >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">
+                      ${fmtSignedRupee(port.settledPL)}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Metrics bar -->
+                <div class="grid grid-cols-2 gap-2 pt-3 border-t border-[#e8eaee] dark:border-[#2a2e37] text-xs">
+                  <div>
+                    <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">ROI</span>
+                    <span class="${port.roi >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'} font-bold">${port.roi.toFixed(1)}%</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">Win Rate</span>
+                    <span class="text-[#1b1d21] dark:text-white font-bold">${port.winRate.toFixed(1)}%</span>
+                  </div>
+                </div>
+
+                <!-- Admin Action Buttons (Inspect & Delete) -->
+                <div class="flex items-center justify-between gap-2 pt-3 mt-3 border-t border-[#e8eaee] dark:border-[#2a2e37]">
+                  <button onclick="event.stopPropagation(); viewUserAsAdmin('${p.id}')" class="flex-1 py-1.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-[#00b386] hover:text-white dark:hover:bg-[#00b386] dark:hover:text-white text-xs font-bold text-[#1b1d21] dark:text-neutral-200 transition text-center cursor-pointer flex items-center justify-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <span>Inspect</span>
+                  </button>
+                  ${(p.role === 'admin' || (p.name && p.name.toLowerCase() === 'naveen')) ? `
+                    <span class="px-2.5 py-1 text-[10px] font-extrabold text-[#00b386] bg-emerald-50 dark:bg-emerald-950/60 rounded-lg">Admin</span>
+                  ` : `
+                    <button onclick="event.stopPropagation(); deleteUserProfile('${p.id}', '${p.name}')" class="p-1.5 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/60 border border-transparent hover:border-red-200 dark:hover:border-red-800/60 transition cursor-pointer" title="Delete ${p.name} from MongoDB">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+// ----------------------------------------------------
+// SCREEN 6: PROFILE
+// ----------------------------------------------------
+function renderProfileScreen() {
+  const u = getActiveProfile();
+  const port = calculateUserPortfolio(u);
+  const isViewingAsAdmin = state.impersonatingUserId && state.impersonatingUserId !== state.activeUserId;
+
+  return `
+    <div class="space-y-6">
+      <h1 class="text-2xl font-bold tracking-tight text-[#1b1d21] dark:text-white">Profile &amp; Settings</h1>
+
+      <!-- 2-Column Desktop Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: User Identity Card (5 cols on lg) -->
+        <div class="lg:col-span-5 space-y-5">
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-6 shadow-sm text-center">
+            <div class="w-20 h-20 rounded-2xl mx-auto mb-3.5 flex items-center justify-center text-3xl font-black text-white shadow-md" style="background:${u.color}">
+              ${u.name.charAt(0).toUpperCase()}
+            </div>
+            <h2 class="text-xl font-bold text-[#1b1d21] dark:text-white flex items-center justify-center gap-2">
+              ${u.name}
+              ${u.role === 'admin' ? '<span class="text-[11px] text-[#00b386] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded font-extrabold">★ Admin</span>' : ''}
+            </h2>
+            <p class="text-xs text-[#7c818c] mt-1">Portfolio tracking active since ${u.createdAt || 'Day 1'}</p>
+
+            <!-- Capital Breakdown Grid -->
+            <div class="grid grid-cols-2 gap-2.5 mt-5 pt-5 border-t border-[#e8eaee] dark:border-[#2a2e37] text-left">
+              <div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">Starting Capital</span>
+                  <span class="text-sm font-bold text-[#1b1d21] dark:text-white">${fmtRupee(u.startingBankroll)}</span>
+                </div>
+                <button onclick="openEditBankrollSheet()" class="p-1.5 rounded-lg text-[#7c818c] hover:text-[#00b386] hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer" title="Edit Starting Bankroll">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                </button>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">Net Deposits</span>
+                <span class="text-sm font-bold text-[#00b386]">+${fmtRupee(port.totalDeposits)}</span>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">Net Withdrawals</span>
+                <span class="text-sm font-bold text-[#eb5b3c]">-${fmtRupee(port.totalWithdrawals)}</span>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                <span class="text-[10px] text-[#7c818c] uppercase font-semibold block">Settled P&amp;L</span>
+                <span class="text-sm font-bold ${port.settledPL >= 0 ? 'text-[#00b386]' : 'text-[#eb5b3c]'}">${fmtSignedRupee(port.settledPL)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Profile Actions (7 cols on lg) -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="bg-white dark:bg-[#181b22] border border-[#e8eaee] dark:border-[#2a2e37] rounded-2xl p-5 shadow-sm space-y-2.5">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[#7c818c] mb-3">Portfolio Actions</h2>
+
+            <!-- Edit Starting Bankroll & Name Button -->
+            <button onclick="openEditBankrollSheet()" class="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-bold text-[#1b1d21] dark:text-white transition cursor-pointer">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-[#00b386]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                <span>Edit Starting Bankroll &amp; Name</span>
+              </div>
+              <span class="text-xs text-[#00b386] font-semibold">Edit</span>
+            </button>
+
+            <!-- Clear Bets & Enter My Own Button -->
+            <button onclick="clearUserBetsToStartFresh()" class="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-bold text-[#1b1d21] dark:text-white transition cursor-pointer">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span>Clear Bets (Start Fresh &amp; Enter My Own)</span>
+              </div>
+              <span class="text-xs text-orange-500 font-semibold">Start Fresh</span>
+            </button>
+
+            <!-- CSV Export Button -->
+            <button onclick="openCsvExportModal()" class="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-bold text-[#1b1d21] dark:text-white transition cursor-pointer">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-[#00b386]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span>Export Bets as CSV</span>
+              </div>
+              <span class="text-xs text-[#7c818c]">Copy / Save</span>
+            </button>
+
+            <!-- Admin Reset Password Feature -->
+            ${(isLoggedAsAdmin() || !isViewingAsAdmin) ? `
+              <button onclick="openResetPasswordSheet('${u.id}')" class="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-bold text-[#1b1d21] dark:text-white transition cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <svg class="w-4 h-4 text-[#7c818c]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                  <span>${isViewingAsAdmin ? `Reset ${u.name}'s Password` : 'Change Password'}</span>
+                </div>
+                <span class="text-xs text-[#7c818c]">Security</span>
+              </button>
+            ` : ''}
+
+            <!-- Reset to Demo Data -->
+            <button onclick="resetToDemoData()" class="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-bold text-[#1b1d21] dark:text-white transition cursor-pointer">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <span>Reset Demo Sample Data</span>
+              </div>
+              <span class="text-xs text-amber-500 font-semibold">Restore</span>
+            </button>
+
+            <!-- Add New Bettor Profile -->
+            <button onclick="showNetflixAddProfileModal()" class="w-full flex items-center justify-between p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold text-[#00b386] transition cursor-pointer">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-[#00b386]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                <span>Add Another Bettor Profile</span>
+              </div>
+              <span class="text-xs text-[#00b386] font-bold">+ Add Profile</span>
+            </button>
+
+            <!-- Delete Bettor Profile (When Admin is inspecting another user) -->
+            ${(isLoggedAsAdmin() && isViewingAsAdmin && u.role !== 'admin' && (u.name && u.name.toLowerCase() !== 'naveen')) ? `
+              <button onclick="deleteUserProfile('${u.id}', '${u.name}')" class="w-full flex items-center justify-between p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200/80 dark:border-red-800/60 text-xs font-bold text-[#eb5b3c] transition cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <svg class="w-4 h-4 text-[#eb5b3c]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <span>Delete This Profile (${u.name})</span>
+                </div>
+                <span class="text-xs font-bold text-[#eb5b3c]">Delete from DB</span>
+              </button>
+            ` : ''}
+
+            <!-- Log Out -->
+            <button onclick="openNetflixPicker()" class="w-full flex items-center justify-center p-3.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-[#eb5b3c] font-bold text-xs border border-red-200/50 dark:border-red-800/40 transition cursor-pointer">
+              Log Out of BetBook
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+// ----------------------------------------------------
+// TRANSACTION SHEET (DEPOSIT / WITHDRAWAL)
+// ----------------------------------------------------
+function openTransactionSheet(type) {
+  const isDeposit = type === 'deposit';
+  const title = isDeposit ? 'Record Deposit' : 'Record Withdrawal';
+  const subtitle = isDeposit ? 'Add money to your betting bankroll' : 'Take out winnings or capital';
+
+  const html = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-[#1b1d21] dark:text-white">${title}</h2>
+          <p class="text-xs text-[#7c818c]">${subtitle}</p>
+        </div>
+        <button onclick="closeSheet()" class="p-1 rounded-full text-[#7c818c] hover:bg-slate-100 dark:hover:bg-slate-800">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[#e8eaee] dark:border-[#2a2e37] text-[11px] text-[#7c818c]">
+        ℹ️ <strong>Rule:</strong> Deposits and withdrawals update your current balance but <em>never</em> count as profit or loss in your ROI or P&amp;L metrics.
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Amount (₹)</label>
+          <input id="txnAmountInput" type="number" step="100" placeholder="e.g. 5000" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+        </div>
+
+        <!-- Quick Amount Chips -->
+        <div class="flex items-center gap-1.5">
+          ${[1000, 2000, 5000, 10000].map(amt => `
+            <button onclick="document.getElementById('txnAmountInput').value = ${amt}" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-[#1b1d21] dark:text-white hover:bg-slate-200">
+              +₹${amt.toLocaleString('en-IN')}
+            </button>
+          `).join('')}
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Note (optional)</label>
+          <input id="txnNoteInput" type="text" placeholder="e.g. UPI transfer, Bank payout" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+        </div>
+
+        <div id="txnFormError" class="hidden text-xs text-[#eb5b3c] bg-red-50 dark:bg-red-950/40 p-2.5 rounded-xl border border-red-200 dark:border-red-800"></div>
+
+        <button onclick="submitTransaction('${type}')" class="w-full py-3.5 rounded-xl ${isDeposit ? 'bg-[#00b386] hover:bg-[#009b74]' : 'bg-[#eb5b3c] hover:bg-[#d44d30]'} text-white font-bold text-sm tracking-wide transition shadow-md">
+          ${isDeposit ? 'Add Deposit' : 'Record Withdrawal'}
+        </button>
+      </div>
+    </div>
+  `;
+
+  openSheet(html);
+}
+
+async function submitTransaction(type) {
+  const amtVal = parseFloat(document.getElementById('txnAmountInput')?.value);
+  const note = document.getElementById('txnNoteInput')?.value.trim() || (type === 'deposit' ? 'Deposit' : 'Withdrawal');
+  const errEl = document.getElementById('txnFormError');
+
+  if (!amtVal || amtVal <= 0) {
+    showFormError(errEl, 'Enter an amount greater than ₹0.');
+    return;
+  }
+
+  const signedAmt = type === 'deposit' ? amtVal : -amtVal;
+
+  if (isApiMode) {
+    try {
+      const targetUserId = state.impersonatingUserId || state.activeUserId;
+      const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'txn', amt: signedAmt, user: targetUserId })
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        applyUserData(updatedUser);
+        closeSheet();
+        showToast(type === 'deposit' ? `₹${amtVal.toLocaleString('en-IN')} deposit added to DB` : `₹${amtVal.toLocaleString('en-IN')} withdrawal saved to DB`);
+        renderApp();
+        return;
+      } else {
+        const err = await res.json();
+        showFormError(errEl, err.error || 'Failed to record transaction in database.');
+        return;
+      }
+    } catch (e) {
+      showFormError(errEl, 'Network error saving transaction to database.');
+      return;
+    }
+  }
+
+  // Local fallback
+  const u = getActiveProfile();
+  if (!u.txns) u.txns = [];
+
+  u.txns.unshift({
+    id: 't_' + Date.now(),
+    type,
+    amt: signedAmt,
+    date: new Date().toISOString().split('T')[0],
+    note
+  });
+
+  saveState();
+  closeSheet();
+  showToast(type === 'deposit' ? `₹${amtVal.toLocaleString('en-IN')} deposit added` : `₹${amtVal.toLocaleString('en-IN')} withdrawal recorded`);
+  renderApp();
+}
+
+// ----------------------------------------------------
+// CSV EXPORT MODAL
+// ----------------------------------------------------
+function openCsvExportModal() {
+  const u = getActiveProfile();
+  const headers = ['Date', 'Sport', 'Event', 'BetType', 'Odds', 'Stake', 'Result', 'AmountReceived', 'SettledPL', 'Tags'];
+  
+  const rows = u.bets.map(b => {
+    const pl = Math.round(calcBetPL(b));
+    const safeEvent = '"' + (b.event || '').replace(/"/g, '""') + '"';
+    const safeTags = '"' + (b.tags || '').replace(/"/g, '""') + '"';
+    return [
+      b.date,
+      b.sport,
+      safeEvent,
+      b.type,
+      b.odds,
+      b.stake,
+      b.result,
+      b.ret || 0,
+      pl,
+      safeTags
+    ].join(',');
+  });
+
+  const csvString = [headers.join(','), ...rows].join('\n');
+
+  const html = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-[#1b1d21] dark:text-white">Export Bets (CSV)</h2>
+          <p class="text-xs text-[#7c818c]">${u.bets.length} records ready for spreadsheet</p>
+        </div>
+        <button onclick="closeSheet()" class="p-1 rounded-full text-[#7c818c] hover:bg-slate-100 dark:hover:bg-slate-800">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-semibold text-[#7c818c]">CSV Output (Read-only)</label>
+        <textarea id="csvExportTextArea" readonly rows="8" class="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-xs font-mono text-[#1b1d21] dark:text-neutral-200 focus:outline-none select-all" onclick="this.select()">${csvString}</textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="copyCsvToClipboard()" class="py-3 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white font-bold text-xs tracking-wide transition flex items-center justify-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+          <span id="copyCsvBtnText">Copy CSV Text</span>
+        </button>
+        <button onclick="downloadCsvFile('${u.name}')" class="py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-[#1b1d21] dark:text-white font-bold text-xs transition flex items-center justify-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>Download .csv</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  openSheet(html);
+}
+
+function copyCsvToClipboard() {
+  const ta = document.getElementById('csvExportTextArea');
+  if (!ta) return;
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const btnText = document.getElementById('copyCsvBtnText');
+    if (btnText) btnText.textContent = 'Copied to Clipboard!';
+    showToast('CSV copied to clipboard');
+  });
+}
+
+function downloadCsvFile(userName) {
+  const ta = document.getElementById('csvExportTextArea');
+  if (!ta) return;
+  const blob = new Blob([ta.value], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `BetBook_${userName}_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('CSV downloaded');
+}
+
+// ----------------------------------------------------
+// RESET PASSWORD SHEET
+// ----------------------------------------------------
+function openResetPasswordSheet(targetUserId) {
+  const target = state.profiles.find(p => p.id === targetUserId);
+  if (!target) return;
+
+  const html = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-[#1b1d21] dark:text-white">Reset Password</h2>
+          <p class="text-xs text-[#7c818c]">Set a new password for ${target.name}</p>
+        </div>
+        <button onclick="closeSheet()" class="p-1 rounded-full text-[#7c818c] hover:bg-slate-100 dark:hover:bg-slate-800">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">New Password (4+ characters)</label>
+          <input id="resetPasswordInput" type="text" placeholder="Enter new password" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+        </div>
+
+        <div id="resetPasswordError" class="hidden text-xs text-[#eb5b3c] bg-red-50 dark:bg-red-950/40 p-2.5 rounded-xl border border-red-200 dark:border-red-800"></div>
+
+        <button onclick="submitPasswordReset('${target.id}')" class="w-full py-3.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] text-white font-bold text-sm tracking-wide transition shadow-md">
+          Save New Password
+        </button>
+      </div>
+    </div>
+  `;
+
+  openSheet(html);
+}
+
+async function submitPasswordReset(targetUserId) {
+  const pw = document.getElementById('resetPasswordInput')?.value.trim();
+  const errEl = document.getElementById('resetPasswordError');
+
+  if (!pw || pw.length < 6) {
+    showFormError(errEl, 'Password must be at least 6 characters long.');
+    return;
+  }
+
+  if (isApiMode) {
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'reset', user: targetUserId, password: pw })
+      });
+      if (res.ok) {
+        closeSheet();
+        showToast('Password updated in database');
+        return;
+      } else {
+        const err = await res.json();
+        showFormError(errEl, err.error || 'Failed to update password.');
+        return;
+      }
+    } catch (e) {
+      showFormError(errEl, 'Network error updating password in database.');
+      return;
+    }
+  }
+
+  // Local fallback
+  const target = state.profiles.find(p => p.id === targetUserId);
+  if (target) {
+    target.password = pw;
+    saveState();
+    closeSheet();
+    showToast(`Password updated for ${target.name}`);
+  }
+}
+
+// ----------------------------------------------------
+// EDIT STARTING BANKROLL & USER DETAILS SHEET
+// ----------------------------------------------------
+function openEditBankrollSheet() {
+  const u = getActiveProfile();
+
+  const html = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-[#1b1d21] dark:text-white">Edit Starting Capital</h2>
+          <p class="text-xs text-[#7c818c]">Set your initial bankroll to track your personal bets</p>
+        </div>
+        <button onclick="closeSheet()" class="p-1 rounded-full text-[#7c818c] hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Your Name</label>
+          <input id="editUserNameInput" type="text" value="${u.name}" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#7c818c] mb-1">Starting Bankroll (₹)</label>
+          <input id="editBankrollInput" type="number" step="500" value="${u.startingBankroll || 0}" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[#e8eaee] dark:border-[#2a2e37] text-sm text-[#1b1d21] dark:text-white focus:outline-none focus:border-[#00b386]">
+        </div>
+
+        <!-- Quick preset amount chips -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          ${[5000, 10000, 25000, 50000, 100000].map(amt => `
+            <button onclick="document.getElementById('editBankrollInput').value = ${amt}" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-[#1b1d21] dark:text-white hover:bg-slate-200 cursor-pointer">
+              ₹${amt.toLocaleString('en-IN')}
+            </button>
+          `).join('')}
+        </div>
+
+        <div id="editBankrollError" class="hidden text-xs text-[#eb5b3c] bg-red-50 dark:bg-red-950/40 p-2.5 rounded-xl border border-red-200 dark:border-red-800"></div>
+
+        <div class="pt-2 space-y-2">
+          <button onclick="saveStartingBankroll()" class="w-full py-3.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] active:scale-[0.99] text-white font-bold text-sm tracking-wide transition shadow-lg shadow-[#00b386]/20 flex items-center justify-center gap-2 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span>Save Capital &amp; Update Portfolio</span>
+          </button>
+          <button onclick="clearUserBetsToStartFresh()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#7c818c] hover:text-[#1b1d21] dark:hover:text-white font-semibold text-xs transition cursor-pointer">
+            Clear Existing Bets (Start Empty &amp; Enter My Own)
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  openSheet(html);
+}
+
+async function saveStartingBankroll() {
+  const nameVal = document.getElementById('editUserNameInput')?.value.trim();
+  const bankrollVal = parseFloat(document.getElementById('editBankrollInput')?.value);
+  const errEl = document.getElementById('editBankrollError');
+
+  if (!nameVal) {
+    showFormError(errEl, 'Please enter a name.');
+    return;
+  }
+  if (isNaN(bankrollVal) || bankrollVal < 0) {
+    showFormError(errEl, 'Please enter a valid starting bankroll amount.');
+    return;
+  }
+
+  if (isApiMode) {
+    try {
+      const targetUserId = state.impersonatingUserId || state.activeUserId;
+      const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'updateProfile', name: nameVal, start: bankrollVal, user: targetUserId })
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        applyUserData(updatedUser);
+        closeSheet();
+        showToast('Starting bankroll & profile updated in database!');
+        renderApp();
+        return;
+      } else {
+        const err = await res.json();
+        showFormError(errEl, err.error || 'Failed to update bankroll in database.');
+        return;
+      }
+    } catch (e) {
+      showFormError(errEl, 'Network error updating starting bankroll.');
+      return;
+    }
+  }
+
+  // Local fallback
+  const u = getActiveProfile();
+  u.name = nameVal;
+  u.startingBankroll = bankrollVal;
+  saveState();
+  closeSheet();
+  showToast('Starting bankroll & profile updated!');
+  renderApp();
+}
+
+async function clearUserBetsToStartFresh() {
+  if (confirm("Clear all existing sample bets and deposits for this profile so you can enter your own real trades from scratch?")) {
+    if (isApiMode) {
+      try {
+        const targetUserId = state.impersonatingUserId || state.activeUserId;
+        const res = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'clearBets', user: targetUserId })
+        });
+        if (res.ok) {
+          const updatedUser = await res.json();
+          applyUserData(updatedUser);
+          closeSheet();
+          showToast("Portfolio cleared in database! Tap ✏️ or + to log your own bets.");
+          renderApp();
+          return;
+        }
+      } catch (e) {
+        console.error('Error clearing bets:', e);
+      }
+    }
+
+    // Local fallback
+    const u = getActiveProfile();
+    u.bets = [];
+    u.txns = [];
+    saveState();
+    closeSheet();
+    showToast("Portfolio cleared! Tap ✏️ or + to log your own bets.");
+    renderApp();
+  }
+}
+
+// ----------------------------------------------------
+// NETFLIX-STYLE AUTHENTICATION SCREEN ENGINE
+// ----------------------------------------------------
+let pendingProfileLoginId = null;
+let selectedNewProfileColor = AVATAR_COLORS[0];
+
+function openNetflixPicker() {
+  document.getElementById('netflixAuthOverlay').classList.remove('hidden');
+  const dismissBtn = document.getElementById('netflixDismissBtn');
+  if (dismissBtn) dismissBtn.classList.toggle('hidden', !state.activeUserId);
+  showNetflixStep('pick');
+}
+
+function showNetflixAddProfileModal() {
+  document.getElementById('profileDropdownMenu')?.classList.add('hidden');
+  document.getElementById('netflixAuthOverlay').classList.remove('hidden');
+  showNetflixStep('add');
+}
+
+function closeNetflixPicker() {
+  document.getElementById('netflixAuthOverlay').classList.add('hidden');
+}
+
+function showNetflixStep(step) {
+  document.getElementById('netflixStepPick').classList.add('hidden');
+  document.getElementById('netflixStepPassword').classList.add('hidden');
+  document.getElementById('netflixStepAdd').classList.add('hidden');
+
+  if (step === 'pick') {
+    renderNetflixProfilesGrid();
+    document.getElementById('netflixStepPick').classList.remove('hidden');
+  } else if (step === 'password') {
+    document.getElementById('netflixStepPassword').classList.remove('hidden');
+  } else if (step === 'add') {
+    renderColorSwatches();
+    // If first profile being created in database, prefill admin name
+    if (state.profiles.length === 0) {
+      const nameInput = document.getElementById('newProfileName');
+      if (nameInput && !nameInput.value) {
+        nameInput.value = 'Naveen';
+        checkIfAdminName('Naveen');
+      }
+    }
+    document.getElementById('netflixStepAdd').classList.remove('hidden');
+  }
+}
+
+function renderNetflixProfilesGrid() {
+  const container = document.getElementById('netflixProfileTiles');
+  if (!container) return;
+
+  if (state.profiles.length === 0) {
+    container.innerHTML = `
+      <div class="w-full max-w-sm mx-auto p-6 rounded-3xl bg-neutral-900/90 border border-neutral-800 text-center space-y-4 shadow-2xl">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-emerald-950/70 text-[#00b386] border border-emerald-500/30 flex items-center justify-center text-3xl font-extrabold shadow-inner">
+          +
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white mb-1.5">No Profiles in Database</h3>
+          <p class="text-xs text-neutral-400 leading-relaxed">Your cloud database is connected! Create your admin profile (Naveen) to start recording bets.</p>
+        </div>
+        <button onclick="showNetflixStep('add')" class="w-full py-3.5 rounded-xl bg-[#00b386] hover:bg-[#009b74] active:scale-95 text-white font-bold text-sm tracking-wide transition shadow-lg shadow-emerald-900/40 cursor-pointer flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>Create First Profile</span>
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = state.profiles.map(p => `
+    <button onclick="openNetflixPasswordStep('${p.id}')" class="group flex flex-col items-center gap-2 focus:outline-none cursor-pointer">
+      <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-black text-white shadow-lg transition-transform duration-200 group-hover:scale-105 group-hover:ring-4 group-hover:ring-white group-focus-visible:ring-4 group-focus-visible:ring-white" style="background:${p.color}">
+        ${p.name.charAt(0).toUpperCase()}
+      </div>
+      <div class="text-center">
+        <span class="text-sm font-semibold text-neutral-300 group-hover:text-white transition-colors block">${p.name}</span>
+        ${p.role === 'admin' ? '<span class="text-[11px] font-bold text-[#00b386] block">★ Admin</span>' : ''}
+      </div>
+    </button>
+  `).join('') + `
+    <!-- Big Prominent + Add Profile Tile -->
+    <button onclick="showNetflixStep('add')" class="group flex flex-col items-center gap-2 focus:outline-none cursor-pointer" title="Create a new bettor profile">
+      <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-2 border-dashed border-neutral-600 hover:border-[#00b386] hover:bg-neutral-800/60 group-focus-visible:border-white flex items-center justify-center text-4xl font-light text-neutral-300 group-hover:text-white transition duration-200">
+        +
+      </div>
+      <span class="text-sm font-bold text-neutral-300 group-hover:text-[#00b386] transition-colors">+ Add Profile</span>
+    </button>
+  `;
+}
+
+function openNetflixPasswordStep(profileId) {
+  pendingProfileLoginId = profileId;
+  const p = state.profiles.find(x => x.id === profileId);
+  if (!p) return;
+
+  document.getElementById('netflixAuthOverlay').classList.remove('hidden');
+  showNetflixStep('password');
+
+  const avatar = document.getElementById('netflixPasswordAvatar');
+  avatar.style.background = p.color;
+  avatar.textContent = p.name.charAt(0).toUpperCase();
+
+  document.getElementById('netflixPasswordName').textContent = p.name;
+  
+  const input = document.getElementById('netflixPasswordInput');
+  input.value = '';
+  document.getElementById('netflixPasswordError').classList.add('hidden');
+  setTimeout(() => input.focus(), 100);
+}
+
+async function handleNetflixLogin() {
+  const input = document.getElementById('netflixPasswordInput');
+  const errEl = document.getElementById('netflixPasswordError');
+  const entered = input.value.trim();
+
+  const p = state.profiles.find(x => x.id === pendingProfileLoginId);
+  if (!p) return;
+
+  if (isApiMode) {
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'login', id: pendingProfileLoginId, password: entered })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showFormError(errEl, data.error || 'Wrong password.');
+        input.focus();
+        return;
+      }
+
+      // Successfully authenticated with MongoDB
+      state.activeUserId = data.id;
+      state.impersonatingUserId = null;
+      p.role = data.admin ? 'admin' : 'user';
+
+      // Load user's live bets & wallet from /api/data
+      const userRes = await fetch('/api/data', { credentials: 'include' });
+      if (userRes.ok) {
+        const fullUser = await userRes.json();
+        applyUserData(fullUser);
+      }
+
+      if (data.admin) {
+        await loadEveryoneData();
+      }
+
+      saveState();
+      closeNetflixPicker();
+      renderApp();
+      showToast(`Welcome back, ${p.name}!`);
+      return;
+    } catch (e) {
+      showFormError(errEl, 'Network error authenticating with database.');
+      return;
+    }
+  }
+
+  // Local demo fallback
+  if (entered !== p.password && entered !== '1234') {
+    errEl.textContent = 'Incorrect password. Hint: Use 1234 for demo.';
+    errEl.classList.remove('hidden');
+    input.focus();
+    return;
+  }
+
+  // Success: Set active profile
+  state.activeUserId = p.id;
+  state.impersonatingUserId = null;
+  state.currentTab = 'home';
+  saveState();
+
+  closeNetflixPicker();
+  renderApp();
+  showToast(`Welcome back, ${p.name}!`);
+}
+
+// Allow Enter key to trigger Netflix password login
+document.getElementById('netflixPasswordInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleNetflixLogin();
+});
+
+function renderColorSwatches() {
+  const container = document.getElementById('avatarColorSwatches');
+  if (!container) return;
+
+  container.innerHTML = AVATAR_COLORS.map(c => `
+    <button type="button" onclick="selectNewProfileColor('${c}')" class="w-8 h-8 rounded-xl transition transform ${c === selectedNewProfileColor ? 'scale-110 ring-2 ring-white ring-offset-2 ring-offset-[#141414]' : 'opacity-80 hover:opacity-100'}" style="background:${c}"></button>
+  `).join('');
+}
+
+function selectNewProfileColor(c) {
+  selectedNewProfileColor = c;
+  renderColorSwatches();
+}
+
+async function handleCreateProfile() {
+  const nameInput = document.getElementById('newProfileName');
+  const bankrollInput = document.getElementById('newProfileStartingBankroll');
+  const pwInput = document.getElementById('newProfilePassword');
+  const confirmPwInput = document.getElementById('newProfileConfirmPassword');
+  const adminCodeInput = document.getElementById('newProfileAdminCode');
+  const errEl = document.getElementById('newProfileError');
+
+  const name = nameInput.value.trim();
+  const bankroll = parseFloat(bankrollInput.value);
+  const pw = pwInput.value.trim();
+  const confirmPw = confirmPwInput.value.trim();
+  const adminCode = adminCodeInput ? adminCodeInput.value.trim() : '';
+
+  if (!name) {
+    showFormError(errEl, 'Please enter a name for the profile.');
+    return;
+  }
+  if (isNaN(bankroll) || bankroll < 0) {
+    showFormError(errEl, 'Please enter a valid starting bankroll (e.g. ₹10,000).');
+    return;
+  }
+  if (!pw || pw.length < 4) {
+    showFormError(errEl, 'Password must be at least 4 characters long.');
+    return;
+  }
+  if (pw !== confirmPw) {
+    showFormError(errEl, 'Passwords do not match.');
+    return;
+  }
+
+  if (isApiMode) {
+    try {
+      if (isLoggedAsAdmin()) {
+        const addRes = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            action: 'addUser',
+            name,
+            password: pw,
+            color: selectedNewProfileColor,
+            startingBankroll: bankroll
+          })
+        });
+        const addData = await addRes.json();
+        if (!addRes.ok) {
+          showFormError(errEl, addData.error || 'Failed to create bettor profile.');
+          return;
+        }
+        if (addData.all && Array.isArray(addData.all)) {
+          const ids = new Set(addData.all.map(u => u.id));
+          state.profiles = state.profiles.filter(p => ids.has(p.id));
+          addData.all.forEach(u => applyUserData(u));
+        }
+        closeNetflixPicker();
+        renderApp();
+        showToast(`Bettor profile "${name}" added to MongoDB!`);
+        return;
+      }
+
+      const regRes = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'register',
+          name,
+          password: pw,
+          color: selectedNewProfileColor,
+          adminCode,
+          startingBankroll: bankroll
+        })
+      });
+      const regData = await regRes.json();
+      if (!regRes.ok) {
+        if (regData.error === 'ADMIN_CODE_REQUIRED') {
+          document.getElementById('adminSetupCodeWrapper')?.classList.remove('hidden');
+          showFormError(errEl, 'Naveen is the master Admin profile. Please enter your secret Admin Setup Code (demo: naveen123).');
+        } else {
+          showFormError(errEl, regData.error || 'Failed to create profile in database.');
+        }
+        return;
+      }
+
+      const newProfile = {
+        id: regData.id,
+        name: regData.name,
+        role: regData.admin ? 'admin' : 'user',
+        color: regData.color,
+        startingBankroll: bankroll,
+        createdAt: new Date().toISOString().split('T')[0],
+        txns: [],
+        bets: []
+      };
+
+      const existingIdx = state.profiles.findIndex(p => p.id === newProfile.id);
+      if (existingIdx !== -1) state.profiles[existingIdx] = newProfile;
+      else state.profiles.push(newProfile);
+
+      state.activeUserId = newProfile.id;
+      state.impersonatingUserId = null;
+      state.currentTab = 'home';
+      saveState();
+
+      closeNetflixPicker();
+      renderApp();
+      showToast(`Profile created in MongoDB! Welcome to BetBook, ${name}`);
+      return;
+    } catch (e) {
+      showFormError(errEl, 'Network error saving profile to database.');
+      return;
+    }
+  }
+
+  // Local demo fallback
+  const newProfile = {
+    id: 'u_' + Date.now(),
+    name,
+    role: name.toLowerCase() === 'naveen' ? 'admin' : 'user',
+    color: selectedNewProfileColor,
+    password: pw,
+    startingBankroll: bankroll,
+    createdAt: new Date().toISOString().split('T')[0],
+    txns: [],
+    bets: []
+  };
+
+  state.profiles.push(newProfile);
+  state.activeUserId = newProfile.id;
+  state.impersonatingUserId = null;
+  state.currentTab = 'home';
+  saveState();
+
+  closeNetflixPicker();
+  renderApp();
+  showToast(`Profile created! Welcome to BetBook, ${name}`);
+}
+
+// ----------------------------------------------------
+// MAIN APPLICATION RENDER CONTROLLER
+// ----------------------------------------------------
+function renderApp() {
+  const activeProfile = getActiveProfile();
+
+  // Top Global Bar Updates
+  const topBarAvatar = document.getElementById('topBarAvatar');
+  const topBarName = document.getElementById('topBarName');
+  if (topBarAvatar && topBarName) {
+    topBarAvatar.style.background = activeProfile.color;
+    topBarAvatar.textContent = activeProfile.name.charAt(0).toUpperCase();
+    topBarName.textContent = activeProfile.name;
+  }
+
+  // Admin Impersonation Banner
+  const adminBanner = document.getElementById('adminImpersonationBanner');
+  const adminBannerUserName = document.getElementById('adminBannerUserName');
+  if (adminBanner && adminBannerUserName) {
+    if (state.impersonatingUserId && state.impersonatingUserId !== state.activeUserId) {
+      adminBanner.classList.remove('hidden');
+      adminBannerUserName.textContent = activeProfile.name;
+    } else {
+      adminBanner.classList.add('hidden');
+    }
+  }
+
+  // Update Nav Tab highlights
+  updateNavButtons();
+
+  // Render Target Screen
+  const mainApp = document.getElementById('app');
+  if (!mainApp) return;
+
+  if (state.currentTab === 'home') {
+    mainApp.innerHTML = renderHomeScreen();
+    // Render chart and trigger bankroll gentle count-up
+    setTimeout(() => {
+      renderGrowthChart();
+      const port = calculateUserPortfolio(activeProfile);
+      animateCountUp('homeBankrollNumber', port.currentBankroll);
+    }, 20);
+  } else if (state.currentTab === 'bets') {
+    mainApp.innerHTML = renderBetsScreen();
+  } else if (state.currentTab === 'analytics') {
+    mainApp.innerHTML = renderAnalyticsScreen();
+  } else if (state.currentTab === 'everyone') {
+    mainApp.innerHTML = renderEveryoneScreen();
+  } else if (state.currentTab === 'profile') {
+    mainApp.innerHTML = renderProfileScreen();
+  }
+}
+
+// Global Initialization
+window.addEventListener('DOMContentLoaded', async () => {
+  loadState();
+  initTheme();
+
+  // Check MongoDB Atlas API connection
+  const me = await checkApiConnection();
+
+  if (isApiMode) {
+    if (me) {
+      // User is already authenticated with session cookie
+      state.activeUserId = me.id;
+      state.impersonatingUserId = null;
+      let p = state.profiles.find(x => x.id === me.id);
+      if (!p) {
+        p = {
+          id: me.id,
+          name: me.name,
+          color: me.color,
+          role: me.admin ? 'admin' : 'user',
+          bets: [],
+          txns: [],
+          startingBankroll: 0
+        };
+        state.profiles.push(p);
+      } else {
+        p.role = me.admin ? 'admin' : 'user';
+      }
+
+      // Fetch user's live bets & transactions from DB
+      await fetchUserData(me.id);
+      if (me.admin || me.role === 'admin' || (me.name && me.name.toLowerCase() === 'naveen')) {
+        await loadEveryoneData();
+      }
+      closeNetflixPicker();
+      renderApp();
+      return;
+    } else {
+      // Not logged in: fetch registered profiles from DB for Netflix screen
+      try {
+        const pRes = await fetch('/api/auth?action=profiles', { credentials: 'include' });
+        if (pRes.ok) {
+          const profiles = await pRes.json();
+          if (Array.isArray(profiles)) {
+            state.profiles = profiles.map(p => ({
+              id: p.id,
+              name: p.name,
+              color: p.color,
+              role: p.admin ? 'admin' : 'user',
+              bets: [],
+              txns: [],
+              startingBankroll: 0
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('Error fetching profiles from DB', e);
+      }
+
+      // If database has 0 profiles, automatically display the Create First Profile form!
+      if (state.profiles.length === 0) {
+        document.getElementById('netflixAuthOverlay').classList.remove('hidden');
+        showNetflixStep('add');
+        renderApp();
+        return;
+      }
+    }
+  }
+
+  // Show profile picker on initial landing
+  document.getElementById('netflixAuthOverlay').classList.remove('hidden');
+  showNetflixStep('pick');
+  renderApp();
+});
+</script>
+
+</body>
+</html>

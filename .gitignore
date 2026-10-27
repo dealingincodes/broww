@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment variables & secrets (CRITICAL: Never commit .env)
+.env
+.env.*
+.env.local
+!.env.example
+
+# Vercel & build cache
+.vercel
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System & OS Files
+.DS_Store
+Thumbs.db
