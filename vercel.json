@@ -1,4 +1,13 @@
 {
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/public/(.*)", "destination": "/$1" },
+    { "source": "/favicon.ico", "destination": "/favicon.ico" },
+    { "source": "/favicon.svg", "destination": "/favicon.svg" },
+    { "source": "/logo.svg", "destination": "/logo.svg" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <linearGradient id="browwTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f5b8" />
+      <stop offset="100%" stop-color="#00b386" />
+    </linearGradient>
+    <linearGradient id="browwBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5367ff" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+  </defs>
+
+  <!-- App Icon Squircle Background -->
+  <rect width="120" height="120" rx="28" fill="#181b22" />
+  <rect x="1" y="1" width="118" height="118" rx="27" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2" />
+
+  <!-- Left vertical pillar (Stem of B) with smooth rounded caps in signature teal -->
+  <rect x="26" y="24" width="16" height="72" rx="8" fill="url(#browwTeal)" />
+
+  <!-- Upper curve of B in vibrant tech cobalt blue -->
+  <path d="M42 34 C64 34, 78 40, 78 52 C78 64, 62 68, 42 68" 
+        stroke="url(#browwBlue)" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none" />
+
+  <!-- Lower curve of B in signature Groww teal, expanding wider like a growth curve -->
+  <path d="M42 68 C70 68, 88 74, 88 86 C88 98, 66 96, 42 96" 
+        stroke="url(#browwTeal)" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none" />
+
+  <!-- Playful rising growth accent dot (Groww amber) -->
+  <circle cx="86" cy="30" r="7.5" fill="#ffb800" />
+</svg>
